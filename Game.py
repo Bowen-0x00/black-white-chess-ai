@@ -1,7 +1,9 @@
+from logging import exception
 import pygame
 import sys
 from enum import Enum
 import numpy as np
+import pygame_menu
 
 
 board_size = (8, 8)
@@ -19,6 +21,12 @@ class ChessState(Enum):
     def __int__(self):
         return self.value
 
+class GameMode(Enum):
+    P1VSP2 = 0
+    P1VSCOM = 1
+    MENU = 2
+    def __int__(self):
+        return self.value
 
 
 scores = {ChessState.BLACK:2, ChessState.WHITE:2}
@@ -26,6 +34,7 @@ scores = {ChessState.BLACK:2, ChessState.WHITE:2}
 chess_status = np.full(board_size, ChessState.EMPTY)
 curren_chess_color = ChessState.BLACK
 is_finish = False
+curren_game_mode = GameMode.MENU
 def init_game():
     global curren_chess_color
     global scores
@@ -37,35 +46,65 @@ def init_game():
     curren_chess_color = ChessState.BLACK
     scores = {ChessState.BLACK:2, ChessState.WHITE:2}
 
+chess_state_img_map = None
+screen = None
+board_rect = None
+finish_img = None 
+black_info_text = None
+black_text_rect = None
+white_info_text =None
+white_text_rect = None
+bg_img = None
+text_font = None
+menu = None
+def init():
+    global chess_state_img_map, screen, board_rect, finish_img, black_info_text, black_text_rect\
+        ,white_info_text, white_text_rect, bg_img, text_font, menu
+    pygame.init()
+    screen = pygame.display.set_mode([1024, 768], depth = 32)
+    board_rect = (234, 143, 555, 555)
+    pygame.display.set_caption("Reversi")
+    bg_img = pygame.image.load("image/s_background.png").convert()
+    black_img = pygame.image.load("image/s_chess_black.png").convert_alpha()
+    white_img = pygame.image.load("image/s_chess_white.png").convert_alpha()
+    valid_img = pygame.image.load("image/s_chess_valid.png").convert_alpha()
+    finish_img = pygame.image.load("image/dialog2.png").convert_alpha()
+    screen.blit(bg_img, (0, 0))
+    mytheme = pygame_menu.themes.THEME_DARK.copy()
+    # myimage = pygame_menu.baseimage.BaseImage(
+    #     image_path='dialog2.png',
+    #     drawing_mode=pygame_menu.baseimage.IMAGE_MODE_FILL
+    # )
 
-pygame.init()
-screen = pygame.display.set_mode([1024, 768], depth = 32)
-board_rect = (234, 143, 555, 555)
-pygame.display.set_caption("Reversi")
-bg_img = pygame.image.load("s_background.png").convert()
-black_img = pygame.image.load("s_chess_black.png").convert_alpha()
-white_img = pygame.image.load("s_chess_white.png").convert_alpha()
-valid_img = pygame.image.load("s_chess_valid.png").convert_alpha()
-finish_img = pygame.image.load("dialog2.png").convert_alpha()
-screen.blit(bg_img, (0, 0))
+    #mytheme.background_color = myimage
+    mytheme.background_color=(40, 41, 35, 200)
+    mytheme = mytheme.set_background_color_opacity(0.7)
+    text_font = pygame.font.Font('font/云峰静龙行书.ttf', 32)
+    mytheme.widget_font = text_font
+    #mytheme.title = False
+    #menu = pygame_menu.Menu('Welcome', 400, 300, theme=pygame_menu.themes.THEME_DARK)
+    menu = pygame_menu.Menu('Menu', 400, 300, theme=mytheme)
 
-#     screen.blit(white_img, (board_rect.x+3*70, board_rect.y+3*70))
-#     screen.blit(black_img, (board_rect.x+3*70, board_rect.y+4*70))
-#     screen.blit(black_img, (board_rect.x+4*70, board_rect.y+3*70))
-#     screen.blit(white_img, (board_rect.x+4*70, board_rect.y+4*70))
-f = pygame.font.Font('云峰静龙行书.ttf', font_size)
-black_info_text = f.render("黑",True,(0,0,0))
-black_text_rect =black_info_text.get_rect() 
-black_text_rect.center = score_pos_black
+    menu.add.button('P1 vs. P2', start_game, GameMode.P1VSP2)
+    menu.add.button('P1 vs. Com', start_game, GameMode.P1VSCOM)
+    menu.add.button('Quit', pygame_menu.events.EXIT)
 
-white_info_text = f.render("白",True,(0,0,0))
-white_text_rect =white_info_text.get_rect() 
-white_text_rect.center = score_pos_white
+    black_info_text = text_font.render("黑",True,(0,0,0))
+    black_text_rect =black_info_text.get_rect() 
+    black_text_rect.center = score_pos_black
+
+    white_info_text = text_font.render("白",True,(0,0,0))
+    white_text_rect =white_info_text.get_rect() 
+    white_text_rect.center = score_pos_white
 
 
-chess_state_img_map = {ChessState.BLACK: black_img,
-                      ChessState.WHITE: white_img,
-                      ChessState.VALID: valid_img}
+    chess_state_img_map = {ChessState.BLACK: black_img,
+                        ChessState.WHITE: white_img,
+                        ChessState.VALID: valid_img}
+
+def show_background():
+    screen.blit(bg_img, (0, 0))
+
 def update_chess_img_to_screen():
     for x in range(board_size[0]):
         for y in range(board_size[1]):
@@ -76,12 +115,12 @@ def update_chess_img_to_screen():
 blink_rect = None
 def update_info():
     screen.blit(black_info_text,black_text_rect)
-    text = f.render("{}".format(scores[ChessState.BLACK]),True,(0,0,0))
+    text = text_font.render("{}".format(scores[ChessState.BLACK]),True,(0,0,0))
     textRect =text.get_rect() 
     textRect.center = (score_pos_black[0], score_pos_black[1] + 80)
     screen.blit(text,textRect)
     screen.blit(white_info_text,white_text_rect)
-    text = f.render("{}".format(scores[ChessState.WHITE]),True,(0,0,0))
+    text = text_font.render("{}".format(scores[ChessState.WHITE]),True,(0,0,0))
     textRect =text.get_rect() 
     textRect.center = (score_pos_white[0], score_pos_white[1] + 80)
     screen.blit(text,textRect)
@@ -93,13 +132,13 @@ test_flag = False
 def check_show_finish():
     global is_finish
     global finish_text_rect
-    if len(valid_path_map) == 0 or scores[ChessState.BLACK] == 0 or scores[ChessState.WHITE] == 0:
-    #if test_flag:
+    #if len(valid_path_map) == 0 or scores[ChessState.BLACK] == 0 or scores[ChessState.WHITE] == 0:
+    if test_flag:
         face = pygame.Surface((1024,768), pygame.SRCALPHA, 32)
         face.fill((200, 200, 200, 200))
         screen.blit(face, (0, 0))
         screen.blit(finish_img, (310, 220))
-        text = f.render("{}胜".format('黑' if scores[ChessState.BLACK] >= scores[ChessState.WHITE]else '白'),True,(30,30,30))
+        text = text_font.render("{}胜".format('黑' if scores[ChessState.BLACK] >= scores[ChessState.WHITE]else '白'),True,(30,30,30))
         finish_text_rect =text.get_rect() 
         finish_text_rect.center = (510, 390)
         screen.blit(text,finish_text_rect)
@@ -107,10 +146,11 @@ def check_show_finish():
 
 def update_board():
     #change chess
-    screen.blit(bg_img, (0, 0))
-    update_chess_img_to_screen()
-    update_info()
-    check_show_finish()
+    show_background()
+    if curren_game_mode == GameMode.P1VSP2 or curren_game_mode == GameMode.P1VSCOM:  
+        update_chess_img_to_screen()
+        update_info()
+        check_show_finish()
 
     
 
@@ -196,46 +236,75 @@ def update_valid_state():
         if valid_path_map[k] == {}:
             del valid_path_map[k]
 
-def process_event():
+def process_event(events):
     global is_finish
     global test_flag
-    for event in pygame.event.get():
+    for event in events:
         if event.type == pygame.QUIT:
             pygame.quit()
             sys.exit()
-        elif event.type == pygame.MOUSEBUTTONDOWN:
+        elif event.type == pygame.MOUSEBUTTONUP:
             if not is_finish and event.pos[0] > board_rect[0] and event.pos[0] < board_rect[0] + board_rect[2]\
                 and event.pos[1] > board_rect[1] and event.pos[1] < board_rect[1] + board_rect[3]:
                 process_mouse(event.pos[0] - board_rect[0], event.pos[1] - board_rect[1])
             if is_finish:
                 if event.pos[0] > finish_text_rect.left and  event.pos[0] < finish_text_rect.left + finish_text_rect.width\
                     and event.pos[1] > finish_text_rect.top and  event.pos[1] < finish_text_rect.top + finish_text_rect.height:
-                    init_game()
+                    # init_game()
                     is_finish = False
                     test_flag = False
-                    clear_valid_state()
-                    update_valid_state()
-                    update_board()
+                    # clear_valid_state()
+                    # update_valid_state()
+                    # update_board()
+                    show_background()
+                    #pygame.event.clear()
+                    return_menu()
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_SPACE:
                 test_flag = True
                 update_board()
-def run_game():
+
+menu_flag = True
+def return_menu():
+    global menu_flag, curren_game_mode
+    curren_game_mode = GameMode.MENU
+    menu_flag = True
+    menu.enable()
+
+def run():
+    global count
     clock = pygame.time.Clock()
     while True:
-        process_event()
-        
+        events = pygame.event.get()
+        update_board()
+        if menu_flag and menu.is_enabled():
+            menu.update(events)
+            try:
+                menu.draw(screen)
+            except RuntimeError as e:
+                ...
+        process_event(events)
         pygame.display.update()
-        #pygame.display.flip()
         clock.tick(20)
+
+
+def start_game(mode):
+    global menu_flag, curren_game_mode
+    if mode == GameMode.P1VSCOM:
+        ...
+    elif mode == GameMode.P1VSP2:
+        menu_flag = False
+        curren_game_mode = GameMode.P1VSP2
+        init_game()
+        update_chess_img_to_screen()
+        update_valid_state()
+        update_board()
+        menu.close()
+        menu.disable()
         
-
-
-init_game()
-update_chess_img_to_screen()
-update_valid_state()
-update_board()
-run_game()
+        
+init()
+run()
 
 
 
