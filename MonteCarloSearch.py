@@ -16,7 +16,7 @@ def chess_to_char(c):
     elif c == ChessState.WHITE:
         return u'\u25CB'
     else: 
-        return u'\u2592'
+        return u'\u2B1A'
     
 def print_board(chess_state):
     for x in range(8):
@@ -71,8 +71,6 @@ class UCT():
         s = s0
         while not self.is_terminal(s):
             _,s = self.do_random_action(s)       #执行随机动作
-            if len(s.valid_path_map) == 0:
-                x = s
         return s
 
     def back_propagate(self, v, st):
@@ -95,9 +93,9 @@ class UCT():
     def get_q_by_player(self, st, state):
         q = self.value(st)
         if state.curren_chess_color == ChessState.BLACK:
-            return q
-        else:
             return -q
+        else:
+            return q
 
     def value(self, st):
         return st.scores[ChessState.BLACK] - st.scores[ChessState.WHITE]

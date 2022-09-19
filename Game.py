@@ -5,6 +5,7 @@ from enum import Enum
 import numpy as np
 import pygame_menu
 import copy
+import threading
 
 
 from ChessState import ChessState
@@ -103,7 +104,7 @@ class Board():
         elif c == ChessState.WHITE:
             return u'\u25CB'
         else: 
-            return u'\u2592'
+            return u'\u2B1A'
         
     def print_board(self, chess_state):
         for x in range(self.board_size[0]):
@@ -140,11 +141,17 @@ class Game():
         self.menu = pygame_menu.Menu('Menu', 400, 300, theme=mytheme)
 
         self.menu.add.button('P1 vs. P2', self.menu_callback_start_game, GameMode.P1VSP2)
-        self.menu.add.button('P1 vs. Com', self.menu_callback_start_game, GameMode.P1VSCOM)
+        #self.menu.add.button('', self.menu_callback_start_game, GameMode.P1VSCOM)
+        self.menu.add.selector('P1 vs. Com :', [('Black', ChessState.BLACK), ('White', ChessState.WHITE)],
+                  onreturn = self.menu_callback_start_com_game)
         self.menu.add.button('Quit', pygame_menu.events.EXIT)
         self.menu_flag = True
         valid_path_map = {}
         self.state = GameState(curren_chess_color, chess_status, scores, valid_path_map)
+    def menu_callback_start_com_game(self, a, color):
+        self.com_color = color
+        self.menu_callback_start_game(GameMode.P1VSCOM)
+
 
     def init_game_state(self):
         self.state.chess_status[::] = ChessState.EMPTY
@@ -157,17 +164,14 @@ class Game():
 
     def get_reversed_color(self, curren_chess_color):
         return ChessState.WHITE if curren_chess_color == ChessState.BLACK else ChessState.BLACK
-    def _get_reversed_color(self):
-        #return int(curren_chess_color) ^ 1
-        return self.get_reversed_color(self.state.curren_chess_color)
 
 
     def check_finish(self, s):
-        return len(s.valid_path_map) == 0 or s.scores[ChessState.BLACK] == 0 or s.scores[ChessState.WHITE] == 0
+        return s==None or len(s.valid_path_map) == 0 or s.scores[ChessState.BLACK] == 0 or s.scores[ChessState.WHITE] == 0
 
     def check_show_finish(self):
-        #if check_finish(self.valid_path_map, self.scores):
-        if self.test_flag:
+        if self.check_finish(self.state):
+        #if self.test_flag:
             self.is_finish = True
             self.finish_text_rect = self.board.show_finish(self.state.scores)
 
@@ -175,12 +179,12 @@ class Game():
         board_size = self.board.board_size
         return x >= 0 and x < board_size[0] and y >= 0 and y < board_size[1]
 
-    def clear_valid_state(self):
+    def clear_valid_state(self, s):
         board_size = self.board.board_size
         for x in range(board_size[0]):
             for y in range(board_size[1]):
-                if self.state.chess_status[x][y] == ChessState.VALID:
-                    self.state.chess_status[x][y] = ChessState.EMPTY
+                if s.chess_status[x][y] == ChessState.VALID:
+                    s.chess_status[x][y] = ChessState.EMPTY
 
     def update_valid_state(self, s):
         reverse_color = self.get_reversed_color(s.curren_chess_color)
@@ -242,6 +246,7 @@ class Game():
         s_new = copy.deepcopy(s)
         self.flip_chess(s_new, a)
         s_new.curren_chess_color = self.get_reversed_color(s_new.curren_chess_color)
+        self.clear_valid_state(s_new)
         self.update_valid_state(s_new)
         return s_new
 
@@ -256,18 +261,26 @@ class Game():
 
          
     def process_chess_mouse_event(self, x_pos, y_pos):
+        if self.curren_game_mode == GameMode.P1VSCOM and self.state.curren_chess_color == self.com_color:
+            return
         board = self.board
         x = y_pos//board.grid_size[0]
         y = x_pos//board.grid_size[1]
         if self.state.chess_status[x][y] == ChessState.VALID:
+            self.state = self.do_action(self.state, (x,y))
+            self.com_do_action()
 
-            self.flip_chess(self.state, (x,y))
-            self.state.curren_chess_color = self._get_reversed_color()
 
-            self.clear_valid_state()
-            self.update_valid_state(self.state)
-            self.update_board()
-
+            #self.update_board()
+    def com_do_action(self):
+        if self.curren_game_mode == GameMode.P1VSCOM and self.state.curren_chess_color == self.com_color:
+            def target(self):
+                uct = UCT(decorator(self, self.do_action), decorator(self, self.check_finish))
+                print('state: ', self.state)
+                a = uct.search(self.state)
+                self.state = self.do_action(self.state, a)
+            t = threading.Thread(target=target, args=(self, ))
+            t.start()
     def return_menu(self):
         self.curren_game_mode = GameMode.MENU
         self.menu_flag = True
@@ -300,14 +313,15 @@ class Game():
                     self.test_flag = True
                     self.update_board()
                 elif event.key == pygame.K_z:
+                    ...
                     #s_new = self.do_action(self.state, (3, 2))
-                    uct = UCT(decorator(self, self.do_action), decorator(self, self.check_finish))
+                    
                     #print(self.state.valid_path_map)
                     #print(len(self.state.valid_path_map))
-                    a = uct.search(self.state)
-                    print(a)
+                    #a = uct.search(self.state)
+                    #print(a)
                     #print(s_new.curren_chess_color)
-                    #self.board.print_board(s_new.chess_status)
+                    #self.board.print_board(self.state.chess_status)
 
 
     def run(self):
@@ -333,19 +347,24 @@ class Game():
         self.state.chess_status[0][4] = ChessState.WHITE
         self.state.chess_status[5][3] = ChessState.BLACK
         self.state.scores = {ChessState.BLACK:1, ChessState.WHITE:15}
+
     def menu_callback_start_game(self, mode):
         if mode == GameMode.P1VSCOM:
-            ...
+            self.curren_game_mode = GameMode.P1VSCOM
+            
         elif mode == GameMode.P1VSP2:
-            self.menu_flag = False
             self.curren_game_mode = GameMode.P1VSP2
-            self.init_game_state()
-            #self.debug_init_state()
-            #update_chess_img_to_screen()
-            self.update_valid_state(self.state)
-            self.update_board()
-            self.menu.close()
-            self.menu.disable()
+
+        self.menu_flag = False
+        self.init_game_state()
+        #self.debug_init_state()
+        #update_chess_img_to_screen()
+        self.update_valid_state(self.state)
+        self.update_board()
+        self.menu.close()
+        self.menu.disable()
+
+        self.com_do_action()
 
 
 
