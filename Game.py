@@ -4,18 +4,24 @@ import sys
 from enum import Enum
 import numpy as np
 import pygame_menu
+import copy
 
 
-class ChessState(Enum):
-    BLACK = 0
-    WHITE = 1
-    VALID = 2
-    EMPTY = 3
+from ChessState import ChessState
+from MonteCarloSearch import UCT
 
 class GameMode(Enum):
     P1VSP2 = 0
     P1VSCOM = 1
     MENU = 2
+class GameState():
+
+    def __init__(self, curren_chess_color, chess_status, scores, valid_path_map):
+        self.curren_chess_color = curren_chess_color
+        self.chess_status = chess_status
+        self.scores = scores
+        self.valid_path_map = valid_path_map
+        #player  |   chess_state  |  scores  |  
 
 class Board():
     scores = {ChessState.BLACK:2, ChessState.WHITE:2}
@@ -91,15 +97,31 @@ class Board():
         self.screen.blit(text,finish_text_rect)
         return finish_text_rect
 
+    def chess_to_char(self, c):
+        if c == ChessState.BLACK:
+            return u'\u25CF'
+        elif c == ChessState.WHITE:
+            return u'\u25CB'
+        else: 
+            return u'\u2592'
+        
+    def print_board(self, chess_state):
+        for x in range(self.board_size[0]):
+            print("")
+            for y in range(self.board_size[1]):
+                print(" {}".format(self.chess_to_char(chess_state[x][y])), end="")
  
 
-
+def decorator(self, func):
+    def func1(*args):
+        return func(*args)
+    return func1
 class Game():
     def __init__(self) -> None:
         self.board = Board()
-        self.scores = {ChessState.BLACK:2, ChessState.WHITE:2}
-        self.chess_status = np.full(self.board.board_size, ChessState.EMPTY)
-        self.curren_chess_color = ChessState.BLACK
+        scores = {ChessState.BLACK:2, ChessState.WHITE:2}
+        chess_status = np.full(self.board.board_size, ChessState.EMPTY)
+        curren_chess_color = ChessState.BLACK
         self.is_finish = False
         self.curren_game_mode = GameMode.MENU
         self.test_flag = False
@@ -121,26 +143,33 @@ class Game():
         self.menu.add.button('P1 vs. Com', self.menu_callback_start_game, GameMode.P1VSCOM)
         self.menu.add.button('Quit', pygame_menu.events.EXIT)
         self.menu_flag = True
-        self.valid_path_map = {}
+        valid_path_map = {}
+        self.state = GameState(curren_chess_color, chess_status, scores, valid_path_map)
 
-    def init_game(self):
-        self.chess_status[::] = ChessState.EMPTY
-        self.chess_status[self.board.board_size[0]//2-1][self.board.board_size[1]//2-1] = ChessState.WHITE
-        self.chess_status[self.board.board_size[0]//2-1][self.board.board_size[1]//2] = ChessState.BLACK
-        self.chess_status[self.board.board_size[0]//2][self.board.board_size[1]//2-1] = ChessState.BLACK
-        self.chess_status[self.board.board_size[0]//2][self.board.board_size[1]//2] = ChessState.WHITE
-        self.curren_chess_color = ChessState.BLACK
-        self.scores = {ChessState.BLACK:2, ChessState.WHITE:2}
+    def init_game_state(self):
+        self.state.chess_status[::] = ChessState.EMPTY
+        self.state.chess_status[self.board.board_size[0]//2-1][self.board.board_size[1]//2-1] = ChessState.WHITE
+        self.state.chess_status[self.board.board_size[0]//2-1][self.board.board_size[1]//2] = ChessState.BLACK
+        self.state.chess_status[self.board.board_size[0]//2][self.board.board_size[1]//2-1] = ChessState.BLACK
+        self.state.chess_status[self.board.board_size[0]//2][self.board.board_size[1]//2] = ChessState.WHITE
+        self.state.curren_chess_color = ChessState.BLACK
+        self.state.scores = {ChessState.BLACK:2, ChessState.WHITE:2}
 
-    def get_reversed_color(self):
+    def get_reversed_color(self, curren_chess_color):
+        return ChessState.WHITE if curren_chess_color == ChessState.BLACK else ChessState.BLACK
+    def _get_reversed_color(self):
         #return int(curren_chess_color) ^ 1
-        return ChessState.WHITE if self.curren_chess_color == ChessState.BLACK else ChessState.BLACK
+        return self.get_reversed_color(self.state.curren_chess_color)
+
+
+    def check_finish(self, s):
+        return len(s.valid_path_map) == 0 or s.scores[ChessState.BLACK] == 0 or s.scores[ChessState.WHITE] == 0
 
     def check_show_finish(self):
-        #if len(self.valid_path_map) == 0 or self.scores[ChessState.BLACK] == 0 or self.scores[ChessState.WHITE] == 0:
+        #if check_finish(self.valid_path_map, self.scores):
         if self.test_flag:
             self.is_finish = True
-            self.finish_text_rect = self.board.show_finish(self.scores)
+            self.finish_text_rect = self.board.show_finish(self.state.scores)
 
     def check_pos_valid(self, x, y):
         board_size = self.board.board_size
@@ -150,80 +179,93 @@ class Game():
         board_size = self.board.board_size
         for x in range(board_size[0]):
             for y in range(board_size[1]):
-                if self.chess_status[x][y] == ChessState.VALID:
-                    self.chess_status[x][y] = ChessState.EMPTY
+                if self.state.chess_status[x][y] == ChessState.VALID:
+                    self.state.chess_status[x][y] = ChessState.EMPTY
 
-    def update_valid_state(self):
-        reverse_color = self.get_reversed_color()
-        directs = [np.array([0, 1]),
-        np.array([0, -1]),
-        np.array([1, 0]),
-        np.array([-1, 0]),
-        np.array([-1, -1]),
-        np.array([-1, 1]),
-        np.array([1, -1]),
-        np.array([1, 1])]
+    def update_valid_state(self, s):
+        reverse_color = self.get_reversed_color(s.curren_chess_color)
+        directs = [np.array([0, 1]),np.array([0, -1]),np.array([1, 0]),np.array([-1, 0]),np.array([-1, -1]),np.array([-1, 1]),np.array([1, -1]),np.array([1, 1])]
         
-        valid_path_map = self.valid_path_map
-        self.valid_path_map.clear()
+        s.valid_path_map.clear()
         board_size = self.board.board_size
         for x in range(board_size[0]):
             for y in range(board_size[1]):
                 if (x == 0 and y ==0) or (x == 0 and y ==board_size[0]) or (x == board_size[0]-1 and y ==0) or (x == board_size[0]-1 and y ==board_size[1] - 1):
                     continue
-                if self.chess_status[x][y] == reverse_color:
+                if s.chess_status[x][y] == reverse_color:
+                    if x==4 and y==4:
+                        aa =x
                     for d in directs:
                         coordinate = np.array([x, y])
                         coordinate_new = coordinate + d
-                        if not self.check_pos_valid(*(coordinate - d)) or (self.chess_status[(*(coordinate - d), )] != ChessState.EMPTY and self.chess_status[(*(coordinate - d), )] != ChessState.VALID):
+                        if not self.check_pos_valid(*(coordinate_new)):
                             continue
-                        if str(coordinate - d) not in valid_path_map:
-                            valid_path_map[str(coordinate - d)] = {}
-                        if str(d) not in valid_path_map[str(coordinate - d)]:
-                            valid_path_map[str(coordinate - d)][str(d)] = []   
-                        valid_path_map[str(coordinate - d)][str(d)].append(coordinate)
-                        while self.check_pos_valid(*coordinate_new):
-                            if self.chess_status[(*coordinate_new,)] == ChessState.EMPTY or self.chess_status[(*coordinate_new,)] == ChessState.VALID:
-                                del valid_path_map[str(coordinate - d)][str(d)]
-                                break
-                            if self.chess_status[(*coordinate_new,)] == self.curren_chess_color:
-                                self.chess_status[(*(coordinate - d), )] = ChessState.VALID
-                                break
-                            valid_path_map[str(coordinate - d)][str(d)].append(coordinate_new.tolist())
-                            coordinate_new += d
-        for k in list(valid_path_map):
-            if valid_path_map[k] == {}:
-                del valid_path_map[k]
 
-    def flip_chess(self, x, y):
-        reverse_color = self.get_reversed_color()
-        for d in self.valid_path_map[str(np.array([x,y]))].values():
+                        if not self.check_pos_valid(*(coordinate - d)) or (s.chess_status[(*(coordinate - d), )] != ChessState.EMPTY and s.chess_status[(*(coordinate - d), )] != ChessState.VALID):
+                            continue
+                        if str(list(coordinate - d)) not in s.valid_path_map:
+                            s.valid_path_map[str(list(coordinate - d))] = {}
+                        if str(list(d)) not in s.valid_path_map[str(list(coordinate - d))]:
+                            s.valid_path_map[str(list(coordinate - d))][str(list(d))] = []   
+                        s.valid_path_map[str(list(coordinate - d))][str(list(d))].append(coordinate)
+                        while True:
+                            if self.check_pos_valid(*coordinate_new):
+                                if s.chess_status[(*coordinate_new,)] == ChessState.EMPTY or s.chess_status[(*coordinate_new,)] == ChessState.VALID:
+                                    del s.valid_path_map[str(list(coordinate - d))][str(list(d))]
+                                    break
+                                if s.chess_status[(*coordinate_new,)] == s.curren_chess_color:
+                                    s.chess_status[(*(coordinate - d), )] = ChessState.VALID
+                                    break
+                                s.valid_path_map[str(list(coordinate - d))][str(list(d))].append(coordinate_new.tolist())
+                            
+                                coordinate_new += d
+                            else:
+                                del s.valid_path_map[str(list(coordinate - d))][str(list(d))]
+                                break
+        for k in list(s.valid_path_map):
+            if s.valid_path_map[k] == {}:
+                del s.valid_path_map[k]   
+        
+
+    def flip_chess(self, s, a):
+        x, y = a
+        s.chess_status[x][y] = s.curren_chess_color
+        s.scores[s.curren_chess_color] += 1
+        reverse_color = self.get_reversed_color(s.curren_chess_color)
+        for d in s.valid_path_map[str(list(np.array([x,y])))].values():
             for p in d:
-                self.chess_status[(*p,)] = self.curren_chess_color
-                self.scores[self.curren_chess_color] +=1
-                self.scores[reverse_color] -=1  
+                s.chess_status[(*p,)] = s.curren_chess_color
+                s.scores[s.curren_chess_color] +=1
+                s.scores[reverse_color] -=1  
+
+    def do_action(self, s, a):
+        s_new = copy.deepcopy(s)
+        self.flip_chess(s_new, a)
+        s_new.curren_chess_color = self.get_reversed_color(s_new.curren_chess_color)
+        self.update_valid_state(s_new)
+        return s_new
 
 
     def update_board(self):
         self.board.show_background()
         if self.curren_game_mode == GameMode.P1VSP2 or self.curren_game_mode == GameMode.P1VSCOM:  
-            self.board.update_chess_img_to_screen(self.chess_status)
-            self.board.update_info(self.scores, self.curren_chess_color)  
+            self.board.update_chess_img_to_screen(self.state.chess_status)
+            self.board.update_info(self.state.scores, self.state.curren_chess_color)  
             self.check_show_finish()
+            pygame.mouse.set_cursor((0,0),self.board.black_img if self.state.curren_chess_color == ChessState.BLACK else self.board.white_img)
 
          
     def process_chess_mouse_event(self, x_pos, y_pos):
         board = self.board
         x = y_pos//board.grid_size[0]
         y = x_pos//board.grid_size[1]
-        if self.chess_status[x][y] == ChessState.VALID:
-            self.chess_status[x][y] = self.curren_chess_color
-            self.scores[self.curren_chess_color] += 1
-            self.flip_chess(x, y)
-            self.curren_chess_color = self.get_reversed_color()
+        if self.state.chess_status[x][y] == ChessState.VALID:
+
+            self.flip_chess(self.state, (x,y))
+            self.state.curren_chess_color = self._get_reversed_color()
 
             self.clear_valid_state()
-            self.update_valid_state()
+            self.update_valid_state(self.state)
             self.update_board()
 
     def return_menu(self):
@@ -257,6 +299,15 @@ class Game():
                 if event.key == pygame.K_SPACE:
                     self.test_flag = True
                     self.update_board()
+                elif event.key == pygame.K_z:
+                    #s_new = self.do_action(self.state, (3, 2))
+                    uct = UCT(decorator(self, self.do_action), decorator(self, self.check_finish))
+                    #print(self.state.valid_path_map)
+                    #print(len(self.state.valid_path_map))
+                    a = uct.search(self.state)
+                    print(a)
+                    #print(s_new.curren_chess_color)
+                    #self.board.print_board(s_new.chess_status)
 
 
     def run(self):
@@ -273,16 +324,25 @@ class Game():
             self.process_event(events)
             pygame.display.update()
             clock.tick(20)
-
+    def debug_init_state(self):
+        self.state.chess_status[::] = ChessState.EMPTY
+        self.state.chess_status[4][0:7] = ChessState.WHITE
+        self.state.chess_status[3][2:5] = ChessState.WHITE
+        self.state.chess_status[2][2:5] = ChessState.WHITE
+        self.state.chess_status[1][4] = ChessState.WHITE
+        self.state.chess_status[0][4] = ChessState.WHITE
+        self.state.chess_status[5][3] = ChessState.BLACK
+        self.state.scores = {ChessState.BLACK:1, ChessState.WHITE:15}
     def menu_callback_start_game(self, mode):
         if mode == GameMode.P1VSCOM:
             ...
         elif mode == GameMode.P1VSP2:
             self.menu_flag = False
             self.curren_game_mode = GameMode.P1VSP2
-            self.init_game()
+            self.init_game_state()
+            #self.debug_init_state()
             #update_chess_img_to_screen()
-            self.update_valid_state()
+            self.update_valid_state(self.state)
             self.update_board()
             self.menu.close()
             self.menu.disable()
