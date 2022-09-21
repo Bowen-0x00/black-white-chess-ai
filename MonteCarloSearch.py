@@ -1,11 +1,17 @@
 import random
 import math
 from ChessState import ChessState
+import time
+import multiprocessing
+from multiprocessing import  Process
+import threading
+
+random.seed(4)
 class Node():
     def __init__(self, state, action):
         self.state = state   #player  |   chess_state  |  scores  |  
         self.action = action #from which action
-        self.children = None
+        self.children = []
         self.parent = None
         self.n = 0           #numbers of be searched      
         self.q = 0           #value
@@ -26,6 +32,7 @@ def print_board(chess_state):
 class UCT():
     iretation_times = 100
     c = 2
+    time_out = 3
 
     def __init__(self, do_action, check_finish):
         self.do_action = do_action      #do action return state
@@ -34,43 +41,79 @@ class UCT():
     def is_terminal(self, s):
         return self.check_finish(s)
 
-    def do_random_action(self, s):
-        actions = list(s.valid_path_map.keys())
-        actions = [eval(a) for a in actions]
+    def do_random_action(self, s, unvisited = False):
+        actions = s.get_actions()
+        if unvisited:
+            actions = [a for a in actions if a.expanded == False]
         a = actions[random.randint(0, len(actions)-1)] #从动作列表中选择一个动作
-        s = self.do_action(s, a)                        #执行动作返回状态
+        s = self.do_action(s, a.action)  
+        s.get_actions()                      #执行动作返回状态
         return a, s
 
-    def search(self, s0):
-        i = self.iretation_times
+    def multi_processor_search(self, s0):
         v0 = Node(s0, None)
-        while i > 0:
+        actions = s0.get_actions()
+        process_list = []
+
+        for a in s0.actions:
+            s = self.do_action(s0, a.action)  
+            v = Node(s, a)
+            v.parent = v0
+            v0.children.append(v)
+            #pool.apply_async(wrap_function, (uct, v,), callback=process_finish)
+            p = threading.Thread(target=self.search,args=(v,))
+            process_list.append(p)
+            p.start()
+        
+        # while True:
+        #     if count >= len(actions):
+        #         break
+        for p in process_list:
+            p.join()
+        v1, a = self.UCB1(v0)
+        print('curren_chess_color: ', v1.state.curren_chess_color)
+
+        return a
+    def search(self, v0):
+        i = 0
+        start_time = time.process_time()
+        #v0 = Node(s0, None)
+        while i < self.iretation_times:
             v1 = self.select(v0)
             st = self.simulate(v1.state)
             self.back_propagate(v1, st)
-            i = i - 1
+            i += 1
 
-        v1, a = self.UCB1(v0)
-        print('curren_chess_color: ', v1.state.curren_chess_color)
-        print_board(v1.state.chess_status)
-        return a
+            if time.process_time() > self.time_out + start_time:
+                print('time out, iterate times: {}'.format(i))
+                break
 
-    def is_has_unvisited_child(self, v):
-        return v.children == None or len([i for i in v.children if i.visited == False]) > 0
+        # v1, a = self.UCB1(v0)
+        # print('curren_chess_color: ', v1.state.curren_chess_color)
+        # print_board(v1.state.chess_status)
+        # return a
+
+    def is_has_unexpended_child(self, v):
+        actions = v.state.get_actions()
+        for a in actions:
+            if a.expanded == False:
+                return True
+        return False
 
     def select(self, v0):
         v = v0
         while not self.is_terminal(v.state):          #非叶子节点
-            if self.is_has_unvisited_child(v):  #有未扩展节点
-                v.visited = True
+            if self.is_has_unexpended_child(v):  #有未扩展节点
+                #print("has unexpanded")
                 return self.expand(v)           #有则扩展节点
             else:
                 v, _ = self.UCB1(v)      #没有则找UCB最大的往下继续
-
+                #print("UCB1")
+        return v
     def simulate(self, s0):
         s = s0
         while not self.is_terminal(s):
-            _,s = self.do_random_action(s)       #执行随机动作
+            _,s = self.do_random_action(s, False)       #执行随机动作
         return s
 
     def back_propagate(self, v, st):
@@ -80,9 +123,8 @@ class UCT():
             v = v.parent
 
     def expand(self, v):
-        if len(v.state.valid_path_map) == 0:
-            x = v
-        a, s = self.do_random_action(v.state)
+        a, s = self.do_random_action(v.state, True)  #执行随机未访问过的动作
+        a.expanded = True
         v_next = Node(s, a)
         v_next.parent = v
         if not v.children:

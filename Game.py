@@ -10,12 +10,33 @@ import threading
 
 from ChessState import ChessState
 from MonteCarloSearch import UCT
+class ThreadWithCallback(threading.Thread):
+    def __init__(self, callback=None, callback_args=None, *args, **kwargs):
+        target = kwargs.pop('target')
+        super(ThreadWithCallback, self).__init__(target=self.target_with_callback, *args, **kwargs)
+        self.callback = callback
+        self.method = target
+        self.callback_args = callback_args
+
+    def target_with_callback(self, *args):
+        self.method(*args)
+        if self.callback is not None:
+            self.callback(*self.callback_args)
 
 class GameMode(Enum):
     P1VSP2 = 0
     P1VSCOM = 1
     MENU = 2
+    FINISH = 3
+
+class Action():
+    action = None
+    expanded = False
+
+    def __init__(self, action):
+        self.action = action
 class GameState():
+
 
     def __init__(self, curren_chess_color, chess_status, scores, valid_path_map):
         self.curren_chess_color = curren_chess_color
@@ -23,6 +44,16 @@ class GameState():
         self.scores = scores
         self.valid_path_map = valid_path_map
         #player  |   chess_state  |  scores  |  
+        self.actions = []
+
+    def get_actions(self):
+        if len(self.actions) > 0:
+            return self.actions
+        actions = list(self.valid_path_map.keys())
+        actions = [eval(a) for a in actions]
+        for a in actions:
+            self.actions.append(Action(a))
+        return self.actions
 
 class Board():
     scores = {ChessState.BLACK:2, ChessState.WHITE:2}
@@ -167,13 +198,13 @@ class Game():
 
 
     def check_finish(self, s):
-        return s==None or len(s.valid_path_map) == 0 or s.scores[ChessState.BLACK] == 0 or s.scores[ChessState.WHITE] == 0
+        return s==None or len(s.valid_path_map) == 0 or s.scores[ChessState.BLACK] == 0 or s.scores[ChessState.WHITE] == 0 or s.scores[ChessState.BLACK] + s.scores[ChessState.WHITE] == self.board.board_size[0] * self.board.board_size[1] 
 
     def check_show_finish(self):
         if self.check_finish(self.state):
         #if self.test_flag:
             self.is_finish = True
-            self.finish_text_rect = self.board.show_finish(self.state.scores)
+            self.curren_game_mode = GameMode.FINISH
 
     def check_pos_valid(self, x, y):
         board_size = self.board.board_size
@@ -248,6 +279,7 @@ class Game():
         s_new.curren_chess_color = self.get_reversed_color(s_new.curren_chess_color)
         self.clear_valid_state(s_new)
         self.update_valid_state(s_new)
+        s_new.actions = []
         return s_new
 
 
@@ -258,7 +290,8 @@ class Game():
             self.board.update_info(self.state.scores, self.state.curren_chess_color)  
             self.check_show_finish()
             pygame.mouse.set_cursor((0,0),self.board.black_img if self.state.curren_chess_color == ChessState.BLACK else self.board.white_img)
-
+        elif self.curren_game_mode == GameMode.FINISH:
+            self.finish_text_rect = self.board.show_finish(self.state.scores)
          
     def process_chess_mouse_event(self, x_pos, y_pos):
         if self.curren_game_mode == GameMode.P1VSCOM and self.state.curren_chess_color == self.com_color:
@@ -268,18 +301,21 @@ class Game():
         y = x_pos//board.grid_size[1]
         if self.state.chess_status[x][y] == ChessState.VALID:
             self.state = self.do_action(self.state, (x,y))
-            self.com_do_action()
-
-
+            if not self.check_finish(self.state):
+                self.com_do_action()
+    def com_do_action_callback(self):
+        ...
+        #self.check_show_finish()
             #self.update_board()
     def com_do_action(self):
         if self.curren_game_mode == GameMode.P1VSCOM and self.state.curren_chess_color == self.com_color:
             def target(self):
                 uct = UCT(decorator(self, self.do_action), decorator(self, self.check_finish))
                 print('state: ', self.state)
-                a = uct.search(self.state)
-                self.state = self.do_action(self.state, a)
-            t = threading.Thread(target=target, args=(self, ))
+                a = uct.multi_processor_search(self.state)
+                self.state = self.do_action(self.state, a.action)
+            #t = threading.Thread(target=target, args=(self, ))
+            t = ThreadWithCallback(target=target, args=(self, ), callback=self.com_do_action_callback, callback_args=())
             t.start()
     def return_menu(self):
         self.curren_game_mode = GameMode.MENU
@@ -339,14 +375,31 @@ class Game():
             pygame.display.update()
             clock.tick(20)
     def debug_init_state(self):
-        self.state.chess_status[::] = ChessState.EMPTY
-        self.state.chess_status[4][0:7] = ChessState.WHITE
-        self.state.chess_status[3][2:5] = ChessState.WHITE
-        self.state.chess_status[2][2:5] = ChessState.WHITE
-        self.state.chess_status[1][4] = ChessState.WHITE
-        self.state.chess_status[0][4] = ChessState.WHITE
-        self.state.chess_status[5][3] = ChessState.BLACK
-        self.state.scores = {ChessState.BLACK:1, ChessState.WHITE:15}
+        board = [
+        [0, 0, 0, 2, 0, 2, 0, 2],
+        [0, 0, 0, 1, 1, 1, 1, 2],
+        [0, 0, 0, 0, 0, 1, 1, 2],
+        [0, 1, 1, 0, 1, 2, 1, 1],
+        [0, 1, 0, 1, 1, 1, 1, 0],
+        [0, 0, 0, 1, 1, 1, 0, 0],
+        [0, 2, 0, 1, 0, 0, 0, 0],
+        [2, 0, 0, 0, 0, 0, 0, 0]
+        ]
+        def get_chess_state_from_int(x):
+            if x == 0: return ChessState.BLACK
+            elif x == 1: return ChessState.WHITE
+            else: return ChessState.EMPTY
+        for x in range(8):
+            for y in range(8):
+                self.state.chess_status[x][y] = get_chess_state_from_int(board[x][y])
+        # self.state.chess_status[::] = ChessState.EMPTY
+        # self.state.chess_status[0][0:8] = [ChessState.BLACK, ChessState.BLACK, ChessState.EMPTY]
+        # self.state.chess_status[3][2:5] = ChessState.WHITE
+        # self.state.chess_status[2][2:5] = ChessState.WHITE
+        # self.state.chess_status[1][4] = ChessState.WHITE
+        # self.state.chess_status[0][4] = ChessState.WHITE
+        # self.state.chess_status[5][3] = ChessState.BLACK
+        self.state.scores = {ChessState.BLACK:36, ChessState.WHITE:20}
 
     def menu_callback_start_game(self, mode):
         if mode == GameMode.P1VSCOM:
