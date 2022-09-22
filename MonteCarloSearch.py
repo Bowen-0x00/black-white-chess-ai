@@ -61,7 +61,8 @@ class UCT():
             v.parent = v0
             v0.children.append(v)
             #pool.apply_async(wrap_function, (uct, v,), callback=process_finish)
-            p = threading.Thread(target=self.search,args=(v,))
+            #p = threading.Thread(target=self.search,args=(v,))
+            p = Process(target=self.search, args=(v,))
             process_list.append(p)
             p.start()
         
@@ -77,11 +78,22 @@ class UCT():
     def search(self, v0):
         i = 0
         start_time = time.process_time()
+        time_map = {'select': 0, 'simulate': 0, 'back_propagate': 0}
         #v0 = Node(s0, None)
         while i < self.iretation_times:
+            t1 = time.process_time()
             v1 = self.select(v0)
+            t = time.process_time()
+            time_map['select'] = t - t1
+            t1 = t
             st = self.simulate(v1.state)
+            t = time.process_time()
+            time_map['simulate'] = t - t1
+            t1 = t
             self.back_propagate(v1, st)
+            t = time.process_time()
+            time_map['back_propagate'] = t - t1
+
             i += 1
 
             if time.process_time() > self.time_out + start_time:
@@ -92,6 +104,7 @@ class UCT():
         # print('curren_chess_color: ', v1.state.curren_chess_color)
         # print_board(v1.state.chess_status)
         # return a
+        return time_map
 
     def is_has_unexpended_child(self, v):
         actions = v.state.get_actions()
