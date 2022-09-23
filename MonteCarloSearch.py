@@ -57,6 +57,16 @@ class UCT():
         self.time_map['select'] = t['select'] if t['select'] > self.time_map['select'] else self.time_map['select']
         self.time_map['simulate'] = t['simulate'] if t['simulate'] > self.time_map['simulate'] else self.time_map['simulate']
         self.time_map['back_propagate'] = t['back_propagate'] if t['back_propagate'] > self.time_map['back_propagate'] else self.time_map['back_propagate']
+    
+    def setparam(self, t, i, c):
+        for i in range(multiprocessing.cpu_count()):
+            self.keep_alive_multiprocessing.q_param.put([i, t, i, c])
+
+    def setparam_callback(self, l):
+        self.time_out = l[0]
+        self.iretation_times = l[1]
+        self.c = l[2]
+
     def multi_processor_search(self, s0):
         self.v0 = Node(s0, None)
         actions = s0.get_actions()
@@ -65,7 +75,7 @@ class UCT():
         self.time_map = {'select': 0, 'simulate': 0, 'back_propagate': 0}
         start_time = time.process_time()
         if not self.keep_alive_multiprocessing:
-            self.keep_alive_multiprocessing = KeepAliveMultiprocessing(self.search, self.success_callback)
+            self.keep_alive_multiprocessing = KeepAliveMultiprocessing(self.search, self.success_callback, self.setparam_callback)
             self.keep_alive_multiprocessing.run()
 
         for a in s0.actions:
@@ -98,7 +108,7 @@ class UCT():
             # if len(self.v0.children) == len(actions):
             #     break
         end_time = time.process_time()
-        print('actual time: ', end_time-start_time)
+        print('multiprocess actual time: ', end_time-start_time)
         v1, a = self.UCB1(self.v0)
         print('curren_chess_color: ', v1.state.curren_chess_color)
 
@@ -107,6 +117,7 @@ class UCT():
     def search(self, v0):
         i = 0
         start_time = time.process_time()
+        print('start_time, ', start_time)
         time_map = {'select': 0, 'simulate': 0, 'back_propagate': 0}
         #v0 = Node(s0, None)
         while i < self.iretation_times:
@@ -124,9 +135,10 @@ class UCT():
             time_map['back_propagate'] += t - t1
 
             i += 1
-
-            if time.process_time() > self.time_out + start_time:
-                print('time out, iterate times: {}'.format(i))
+            end_time = time.process_time()
+            if end_time > self.time_out + start_time:
+                print('end_time, ', end_time)
+                print('time out: {}, iterate times: {}.  actual: {}'.format(self.time_out, i, end_time-start_time))
                 break
 
         # v1, a = self.UCB1(v0)
