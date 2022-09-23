@@ -11,19 +11,10 @@ import threading
 from ChessState import ChessState
 from MonteCarloSearch import UCT
 from multiprocessing import  Process
+from ThreadWithCallback import ThreadWithCallback
 
-class ThreadWithCallback(threading.Thread):
-    def __init__(self, callback=None, callback_args=None, *args, **kwargs):
-        target = kwargs.pop('target')
-        super(ThreadWithCallback, self).__init__(target=self.target_with_callback, *args, **kwargs)
-        self.callback = callback
-        self.method = target
-        self.callback_args = callback_args
-
-    def target_with_callback(self, *args):
-        self.method(*args)
-        if self.callback is not None:
-            self.callback(*self.callback_args)
+uct = None
+game = None
 
 class GameMode(Enum):
     P1VSP2 = 0
@@ -107,7 +98,7 @@ class Board():
                     #screen.set_clip(board_rect[0]+y*70, board_rect[1]+x*70, 70, 70)
                     self.screen.blit(self.chess_state_img_map[chess_status[x][y]], (self.board_rect[0]+y*self.grid_size[0], self.board_rect[1]+x*self.grid_size[1]))
 
-    def update_info(self, scores, curren_chess_color, curren_game_mode, com_thinking, com_color):
+    def update_info(self, scores, curren_chess_color, curren_game_mode, com_thinking, com_color, time_map):
         self.screen.blit(self.black_info_text, self.black_text_rect)
         text = self.text_font.render("{}".format(scores[ChessState.BLACK]),True,(0,0,0))
         textRect =text.get_rect() 
@@ -126,7 +117,16 @@ class Board():
             pos = self.score_pos_white if com_color == ChessState.WHITE else self.score_pos_black
             textRect.center = (pos[0], pos[1] + 80 + 80)
             self.screen.blit(text,textRect)
-
+            y = pos[1] + 240
+            if time_map and not com_thinking:
+                for t in time_map:
+                    text = self.text_font_32.render("{}：{:.2f}".format(t, time_map[t]),True,(0,0,0))
+                    textRect =text.get_rect()
+                    pos = self.score_pos_white if com_color == ChessState.WHITE else self.score_pos_black
+                    textRect.center = (pos[0], y)
+                    y += 40
+                    self.screen.blit(text,textRect)
+            
 
     def show_finish(self, scores):
         face = pygame.Surface((1024,768), pygame.SRCALPHA, 32)
@@ -190,6 +190,8 @@ class Game():
         valid_path_map = {}
         self.state = GameState(curren_chess_color, chess_status, scores, valid_path_map)
         self.com_thinking = False
+        self.time_map = None
+
     def menu_callback_start_com_game(self, a, color):
         self.com_color = color
         self.menu_callback_start_game(GameMode.P1VSCOM)
@@ -298,7 +300,7 @@ class Game():
         self.board.show_background()
         if self.curren_game_mode == GameMode.P1VSP2 or self.curren_game_mode == GameMode.P1VSCOM:  
             self.board.update_chess_img_to_screen(self.state.chess_status)
-            self.board.update_info(self.state.scores, self.state.curren_chess_color, self.curren_game_mode, self.com_thinking, self.com_color)  
+            self.board.update_info(self.state.scores, self.state.curren_chess_color, self.curren_game_mode, self.com_thinking, self.com_color, self.time_map)  
             self.check_show_finish()
             pygame.mouse.set_cursor((0,0),self.board.black_img if self.state.curren_chess_color == ChessState.BLACK else self.board.white_img)
         elif self.curren_game_mode == GameMode.FINISH:
@@ -314,7 +316,7 @@ class Game():
             self.state = self.do_action(self.state, (x,y))
             if not self.check_finish(self.state):
                 self.com_do_action()
-    def com_do_action_callback(self):
+    def com_do_action_callback(self, arg):
         self.com_thinking = False
         #self.check_show_finish()
             #self.update_board()
@@ -322,9 +324,9 @@ class Game():
         if self.curren_game_mode == GameMode.P1VSCOM and self.state.curren_chess_color == self.com_color:
             self.com_thinking = True
             def target(self):
-                uct = UCT(decorator(self, self.do_action), decorator(self, self.check_finish))
+                
                 print('state: ', self.state)
-                a = uct.multi_processor_search(self.state)
+                a, self.time_map = uct.multi_processor_search(self.state)
                 self.state = self.do_action(self.state, a.action)
             #t = threading.Thread(target=target, args=(self, ))
             t = ThreadWithCallback(target=target, args=(self, ), callback=self.com_do_action_callback, callback_args=())
@@ -414,9 +416,10 @@ class Game():
         self.state.scores = {ChessState.BLACK:36, ChessState.WHITE:20}
 
     def menu_callback_start_game(self, mode):
+        global uct
         if mode == GameMode.P1VSCOM:
             self.curren_game_mode = GameMode.P1VSCOM
-            
+            uct = UCT(game.do_action, game.check_finish, self.com_color)
         elif mode == GameMode.P1VSP2:
             self.curren_game_mode = GameMode.P1VSP2
 

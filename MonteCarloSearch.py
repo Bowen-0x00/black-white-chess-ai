@@ -5,6 +5,7 @@ import time
 import multiprocessing
 from multiprocessing import  Process
 import threading
+from ThreadWithCallback import ThreadWithCallback
 
 random.seed(4)
 class Node():
@@ -34,9 +35,10 @@ class UCT():
     c = 2
     time_out = 3
 
-    def __init__(self, do_action, check_finish):
+    def __init__(self, do_action, check_finish, color):
         self.do_action = do_action      #do action return state
         self.check_finish = check_finish
+        self.color = color
 
     def is_terminal(self, s):
         return self.check_finish(s)
@@ -49,32 +51,32 @@ class UCT():
         s = self.do_action(s, a.action)  
         s.get_actions()                      #执行动作返回状态
         return a, s
-
+    def thread_callback(self, t):
+        self.time_map['select'] = t['select'] if t['select'] > self.time_map['select'] else self.time_map['select']
+        self.time_map['simulate'] = t['simulate'] if t['simulate'] > self.time_map['simulate'] else self.time_map['simulate']
+        self.time_map['back_propagate'] = t['back_propagate'] if t['back_propagate'] > self.time_map['back_propagate'] else self.time_map['back_propagate']
     def multi_processor_search(self, s0):
         v0 = Node(s0, None)
         actions = s0.get_actions()
         process_list = []
-
+        self.time_map = {'select': 0, 'simulate': 0, 'back_propagate': 0}
         for a in s0.actions:
             s = self.do_action(s0, a.action)  
             v = Node(s, a)
             v.parent = v0
             v0.children.append(v)
             #pool.apply_async(wrap_function, (uct, v,), callback=process_finish)
-            #p = threading.Thread(target=self.search,args=(v,))
-            p = Process(target=self.search, args=(v,))
+            p = ThreadWithCallback(target=self.search,args=(v,), callback=self.thread_callback)
+            #p = Process(target=self.search, args=(v,))
             process_list.append(p)
             p.start()
         
-        # while True:
-        #     if count >= len(actions):
-        #         break
         for p in process_list:
             p.join()
         v1, a = self.UCB1(v0)
         print('curren_chess_color: ', v1.state.curren_chess_color)
 
-        return a
+        return a, self.time_map
     def search(self, v0):
         i = 0
         start_time = time.process_time()
@@ -84,15 +86,15 @@ class UCT():
             t1 = time.process_time()
             v1 = self.select(v0)
             t = time.process_time()
-            time_map['select'] = t - t1
+            time_map['select'] += t - t1
             t1 = t
             st = self.simulate(v1.state)
             t = time.process_time()
-            time_map['simulate'] = t - t1
+            time_map['simulate'] += t - t1
             t1 = t
             self.back_propagate(v1, st)
             t = time.process_time()
-            time_map['back_propagate'] = t - t1
+            time_map['back_propagate'] += t - t1
 
             i += 1
 
@@ -153,8 +155,10 @@ class UCT():
             return q
 
     def value(self, st):
-        return st.scores[ChessState.BLACK] - st.scores[ChessState.WHITE]
-
+        if self.color == ChessState.BLACK:
+            return st.scores[ChessState.BLACK] - st.scores[ChessState.WHITE]
+        else:
+            return st.scores[ChessState.WHITE] - st.scores[ChessState.BLACK]
     def UCB(self, v, v1):
         return v1.q / v1.n + self.c * math.sqrt(2*math.log(v.n)/ v1.n)
 
