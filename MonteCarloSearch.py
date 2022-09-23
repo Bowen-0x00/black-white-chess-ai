@@ -41,6 +41,9 @@ class UCT():
         self.color = color
         self.v0 = None
         self.keep_alive_multiprocessing = None
+        self.iretation_times = multiprocessing.Manager().Value(int, 100)
+        self.time_out = multiprocessing.Manager().Value(float, 1)
+        self.c = multiprocessing.Manager().Value(int, 2)
 
     def is_terminal(self, s):
         return self.check_finish(s)
@@ -58,14 +61,17 @@ class UCT():
         self.time_map['simulate'] = t['simulate'] if t['simulate'] > self.time_map['simulate'] else self.time_map['simulate']
         self.time_map['back_propagate'] = t['back_propagate'] if t['back_propagate'] > self.time_map['back_propagate'] else self.time_map['back_propagate']
     
-    def setparam(self, t, i, c):
-        for i in range(multiprocessing.cpu_count()):
-            self.keep_alive_multiprocessing.q_param.put([i, t, i, c])
+    def setparam(self, t, iretation_times, c):
+        # for i in range(multiprocessing.cpu_count()):
+        #     self.keep_alive_multiprocessing.q_param.put([i, t, iretation_times, c])
+        self.time_out.value = t
+        self.iretation_times.value = iretation_times
+        self.c.value = c
 
     def setparam_callback(self, l):
-        self.time_out = l[0]
-        self.iretation_times = l[1]
-        self.c = l[2]
+        self.time_out.value = l[0]
+        self.iretation_times.value = l[1]
+        self.c.value = l[2]
 
     def multi_processor_search(self, s0):
         self.v0 = Node(s0, None)
@@ -120,7 +126,7 @@ class UCT():
         print('start_time, ', start_time)
         time_map = {'select': 0, 'simulate': 0, 'back_propagate': 0}
         #v0 = Node(s0, None)
-        while i < self.iretation_times:
+        while i < self.iretation_times.value:
             t1 = time.process_time()
             v1 = self.select(v0)
             t = time.process_time()
@@ -136,15 +142,16 @@ class UCT():
 
             i += 1
             end_time = time.process_time()
-            if end_time > self.time_out + start_time:
+            if end_time > self.time_out.value + start_time:
                 print('end_time, ', end_time)
-                print('time out: {}, iterate times: {}.  actual: {}'.format(self.time_out, i, end_time-start_time))
+                print('time out: {}, iterate times: {}.  actual: {}'.format(self.time_out.value, i, end_time-start_time))
                 break
 
         # v1, a = self.UCB1(v0)
         # print('curren_chess_color: ', v1.state.curren_chess_color)
         # print_board(v1.state.chess_status)
         # return a
+        print('i: ', i)
         return v0, time_map
 
     def is_has_unexpended_child(self, v):
@@ -199,7 +206,7 @@ class UCT():
         else:
             return st.scores[ChessState.WHITE] - st.scores[ChessState.BLACK]
     def UCB(self, v, v1):
-        return v1.q / v1.n + self.c * math.sqrt(2*math.log(v.n)/ v1.n)
+        return v1.q / v1.n + self.c.value * math.sqrt(2*math.log(v.n)/ v1.n)
 
     def UCB1(self, v):
         v_next = max(v.children, key=lambda x: self.UCB(v, x))

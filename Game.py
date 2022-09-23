@@ -192,19 +192,16 @@ class Game():
     def set_timeout(self, t):
         self.time_out = t
         if uct:
-            uct.time_out = self.time_out
             uct.setparam(self.time_out, self.iretation_times, self.c)
             print('time_out: ', self.time_out)
 
     def set_iteration(self, i):
         self.iretation_times = i
         if uct:
-            uct.iretation_times = self.iretation_times
             uct.setparam(self.time_out, self.iretation_times, self.c)
     def set_c(self, c):
         self.c = c
         if uct:
-            uct.c = self.c
             uct.setparam(self.time_out, self.iretation_times, self.c)
     def menu_callback_start_com_game(self, a, color):
         self.com_color = color
@@ -349,9 +346,9 @@ class Game():
         if mode == GameMode.P1VSCOM:
             self.curren_game_mode = GameMode.P1VSCOM
             uct = UCT(self.reversi.do_action, self.reversi.check_finish, self.com_color)
-            uct.time_out = self.time_out 
-            uct.iretation_times = self.iretation_times
-            uct.c = self.c
+            # uct.time_out = self.time_out 
+            # uct.iretation_times = self.iretation_times
+            # uct.c = self.c
         elif mode == GameMode.P1VSP2:
             self.curren_game_mode = GameMode.P1VSP2
 
