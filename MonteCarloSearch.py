@@ -87,8 +87,11 @@ class UCT():
         count = 0
         while True:
             if not self.keep_alive_multiprocessing.q_return.empty():
-                v = self.keep_alive_multiprocessing.q_return.get()
+                v, t = self.keep_alive_multiprocessing.q_return.get()
                 self.v0.children.append(v)
+                self.time_map['select'] = t['select'] if t['select'] > self.time_map['select'] else self.time_map['select']
+                self.time_map['simulate'] = t['simulate'] if t['simulate'] > self.time_map['simulate'] else self.time_map['simulate']
+                self.time_map['back_propagate'] = t['back_propagate'] if t['back_propagate'] > self.time_map['back_propagate'] else self.time_map['back_propagate']
                 count += 1
             if count == len(actions):
                 break
@@ -100,6 +103,7 @@ class UCT():
         print('curren_chess_color: ', v1.state.curren_chess_color)
 
         return a, self.time_map
+
     def search(self, v0):
         i = 0
         start_time = time.process_time()
@@ -129,7 +133,7 @@ class UCT():
         # print('curren_chess_color: ', v1.state.curren_chess_color)
         # print_board(v1.state.chess_status)
         # return a
-        return v0
+        return v0, time_map
 
     def is_has_unexpended_child(self, v):
         actions = v.state.get_actions()
@@ -192,34 +196,9 @@ class UCT():
     def success_callback(self, v):
         v.parent = self.v0
         self.v0.children.append(v)
-        ...
+
 
 
     def error_callback(self, e):
         ...
-def multi_processor_search(s0, uct):
-    global v0
-    v0 = Node(s0, None)
-    actions = s0.get_actions()
-    v0.n = len(actions)
-    
-    #process_list = []
-    pool = multiprocessing.Pool()
 
-    for a in s0.actions:
-        s = uct.do_action(s0, a.action)  
-        v = Node(s, a)
-        v.parent = v0
-        #v0.children.append(v)
-        pool.apply_async(uct.search, (v,), callback=self.success_callback, error_callback = self.error_callback)
-        #p = threading.Thread(target=self.search,args=(v,))
-        #p = Process(target=wrapper, args=(v,))
-        #process_list.append(p)
-        #p.start()
-    
-    # for p in process_list:
-    #     p.join()
-    pool.close()
-    pool.join()
-    v1, a = uct.UCB1(v0)
-    print('curren_chess_color: ', v1.state.curren_chess_color)

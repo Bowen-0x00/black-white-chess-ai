@@ -45,7 +45,8 @@ class Board():
         #menu = pygame_menu.Menu('Welcome', 400, 300, theme=pygame_menu.themes.THEME_DARK)
 
         self.text_font = pygame.font.Font('font/云峰静龙行书.ttf', 48)
-        self.text_font_32 = pygame.font.Font('font/云峰静龙行书.ttf', 32)
+        self.text_font_16 = pygame.font.SysFont('STSong', 16) 
+        self.text_font_32 = pygame.font.SysFont('STSong', 32) 
         self.black_info_text = self.text_font.render("黑",True,(0,0,0))
         self.black_text_rect = self.black_info_text.get_rect() 
         self.black_text_rect.center = self.score_pos_black
@@ -84,18 +85,25 @@ class Board():
         blink_rect = self.black_text_rect if curren_chess_color == ChessState.BLACK else self.white_text_rect
         pygame.draw.rect(self.screen, (50, 50, 50), blink_rect, 2)
         if curren_game_mode == GameMode.P1VSCOM:
-            text = self.text_font_32.render("状态：{}".format('思考中...' if com_thinking else "完毕"),True,(0,0,0))
+            text = self.text_font_32.render("Status: {}".format('Thinking...' if com_thinking else "Done"),True,(0,0,0))
             textRect =text.get_rect()
             pos = self.score_pos_white if com_color == ChessState.WHITE else self.score_pos_black
-            textRect.center = (pos[0], pos[1] + 80 + 80)
+            textRect.bottomleft = (40, pos[1] + 80 + 80)
             self.screen.blit(text,textRect)
+
+
+
             y = pos[1] + 240
             if time_map and not com_thinking:
+                text = self.text_font_32.render("Time:",True,(0,0,0))
+                textRect =text.get_rect()
+                textRect.bottomleft = (40, y)
+                y += 40
+                self.screen.blit(text,textRect)
                 for t in time_map:
-                    text = self.text_font_32.render("{}：{:.2f}".format(t, time_map[t]),True,(0,0,0))
+                    text = self.text_font_16.render("{}: {:.2f}".format(t, time_map[t]),True,(0,0,0))
                     textRect =text.get_rect()
-                    pos = self.score_pos_white if com_color == ChessState.WHITE else self.score_pos_black
-                    textRect.center = (pos[0], y)
+                    textRect.bottomright = (self.board_rect[0] - 40, y)
                     y += 40
                     self.screen.blit(text,textRect)
             
@@ -140,8 +148,8 @@ class Game():
         #mytheme.background_color = myimage
         mytheme.background_color=(40, 41, 35, 200)
         mytheme = mytheme.set_background_color_opacity(0.7)
-        self.text_font = pygame.font.Font('font/云峰静龙行书.ttf', 32)
-        mytheme.widget_font = self.text_font
+        self.widget_font = pygame.font.Font('font/云峰静龙行书.ttf', 32)
+        #mytheme.widget_font = self.widget_font
         self.menu = pygame_menu.Menu('Menu', 400, 300, theme=mytheme)
 
         self.menu.add.button('P1 vs. P2', self.menu_callback_start_game, GameMode.P1VSP2)
@@ -196,13 +204,13 @@ class Game():
     def com_do_action(self):
         if self.curren_game_mode == GameMode.P1VSCOM and self.reversi.state.curren_chess_color == self.com_color:
             self.com_thinking = True
-            def target(self):
+            def target():
                 start_time = time.process_time()
                 a, self.time_map = uct.multi_processor_search(self.reversi.state)
                 print('actual time: ', time.process_time() - start_time)
                 self.reversi.state = self.reversi.do_action(self.reversi.state, a.action)
             #t = threading.Thread(target=target, args=(self, ))
-            t = ThreadWithCallback(target=target, args=(self, ), callback=self.com_do_action_callback, callback_args=())
+            t = ThreadWithCallback(target=target, args=(), callback=self.com_do_action_callback, callback_args=())
             t.start()
     def return_menu(self):
         self.curren_game_mode = GameMode.MENU
