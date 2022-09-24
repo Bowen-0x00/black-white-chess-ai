@@ -185,7 +185,7 @@ class Game():
         self.iretation_times = 100
         self.c = 2
 
-        self.com_strategy = [None, None]
+        self.com_strategy = [StrategyEnum.UCT, StrategyEnum.GREEDY_MAXSCORE]
         com1menu = pygame_menu.Menu('P1 VS. COM Menu', 450, 500, theme=mytheme)
         com1menu.add.button('Start', self.menu_callback_start_game, GameMode.P1VSCOM)
         self.com_color = ChessStateEnum.BLACK
