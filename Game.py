@@ -43,6 +43,8 @@ class Board():
         self.valid_img = pygame.image.load("image/s_chess_valid.png").convert_alpha()
         self.finish_img = pygame.image.load("image/dialog2.png").convert_alpha()
         self.circle_img = pygame.image.load("image/circle2.png").convert_alpha()
+        self.icon_img = pygame.image.load("image/icon.png").convert_alpha()
+        pygame.display.set_icon(self.icon_img)
         #self.screen.blit(self.bg_img, (0, 0))
 
         #mytheme.title = False
