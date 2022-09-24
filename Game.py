@@ -36,9 +36,9 @@ class Board():
         self.font_size = 64
         self.score_pos_black = (100, 60)
         self.score_pos_white = (924, 60)
-
+        self.window_size = (1024, 768)
         pygame.init()
-        self.screen = pygame.display.set_mode([1024, 768], depth = 32)
+        self.screen = pygame.display.set_mode(self.window_size, depth = 32)
         self.board_rect = (234, 143, 555, 555)
         pygame.display.set_caption("Reversi")
         self.bg_img = pygame.image.load("image/s_background.png").convert()
@@ -81,44 +81,65 @@ class Board():
                     #screen.set_clip(board_rect[0]+y*70, board_rect[1]+x*70, 70, 70)
                     self.screen.blit(self.chess_state_img_map[chess_status[x][y]], (self.board_rect[0]+y*self.grid_size[0], self.board_rect[1]+x*self.grid_size[1]))
 
-    def update_info(self, scores, curren_chess_color, curren_game_mode, com_thinking, com_color, time_map):
+    def update_info(self, state, curren_game_mode, players):
         self.screen.blit(self.black_info_text, self.black_text_rect)
-        text = self.text_font.render("{}".format(scores[ChessStateEnum.BLACK]),True,(0,0,0))
+        text = self.text_font.render("{}".format(state.scores[ChessStateEnum.BLACK]),True,(0,0,0))
         textRect =text.get_rect() 
         textRect.center = (self.score_pos_black[0], self.score_pos_black[1] + 80)
         self.screen.blit(text,textRect)
         self.screen.blit(self.white_info_text, self.white_text_rect)
-        text = self.text_font.render("{}".format(scores[ChessStateEnum.WHITE]),True,(0,0,0))
+        text = self.text_font.render("{}".format(state.scores[ChessStateEnum.WHITE]),True,(0,0,0))
         textRect =text.get_rect() 
         textRect.center = (self.score_pos_white[0], self.score_pos_white[1] + 80)
         self.screen.blit(text,textRect)
         rect = self.circle_img.get_rect()
-        rect.center = self.black_text_rect.center if curren_chess_color == ChessStateEnum.BLACK else self.white_text_rect.center
+        rect.center = self.black_text_rect.center if state.curren_chess_color == ChessStateEnum.BLACK else self.white_text_rect.center
         # pygame.draw.rect(self.screen, (50, 50, 50), blink_rect, 2)
         self.screen.blit(self.circle_img, rect)
-        if curren_game_mode == GameMode.P1VSCOM:
-            text = self.text_font_32.render("Status: {}".format('Thinking...' if com_thinking else "Done"),True,(0,0,0))
-            textRect =text.get_rect()
-            pos = self.score_pos_white if com_color == ChessStateEnum.WHITE else self.score_pos_black
-            textRect.bottomleft = (40, pos[1] + 80 + 80)
-            self.screen.blit(text,textRect)
 
 
-
-            y = pos[1] + 240
-            if time_map and not com_thinking:
-                text = self.text_font_32.render("Time:",True,(0,0,0))
+        #if curren_game_mode == GameMode.P1VSCOM:
+        for p in players:
+            if p.color == ChessStateEnum.BLACK:
+                text = self.text_font_32.render("Status: {}".format('Thinking...' if p.thinking else "Done"),True,(0,0,0))
                 textRect =text.get_rect()
-                textRect.bottomleft = (40, y)
-                y += 40
+                pos = self.score_pos_black
+                textRect.bottomleft = (40, pos[1] + 80 + 60)
                 self.screen.blit(text,textRect)
-                for t in time_map:
-                    text = self.text_font_16.render("{}: {:.2f}".format(t, time_map[t]),True,(0,0,0))
+                if p.time_map and not p.thinking:
+                    y = pos[1] + 240
+                    text = self.text_font_32.render("Time:",True,(0,0,0))
                     textRect =text.get_rect()
-                    textRect.bottomright = (self.board_rect[0] - 40, y)
+                    textRect.bottomleft = (40, y)
                     y += 40
                     self.screen.blit(text,textRect)
-            
+                    for t in p.time_map:
+                        text = self.text_font_16.render("{}: {:.2f}".format(t, p.time_map[t]),True,(0,0,0))
+                        textRect =text.get_rect()
+                        textRect.bottomright = (self.board_rect[0] - 40, y)
+                        y += 40
+                        self.screen.blit(text,textRect)
+                
+            else:
+                text = self.text_font_32.render("Status: {}".format('Thinking...' if p.thinking else "Done"),True,(0,0,0))
+                textRect =text.get_rect()
+                pos = self.score_pos_white
+                textRect.bottomleft = (830, pos[1] + 80 + 60)
+                self.screen.blit(text,textRect)
+                if p.time_map and not p.thinking:
+                    y = pos[1] + 240
+                    text = self.text_font_32.render("Time:",True,(0,0,0))
+                    textRect =text.get_rect()
+                    textRect.bottomleft = (830, y)
+                    y += 40
+                    self.screen.blit(text,textRect)
+                    for t in p.time_map:
+                        text = self.text_font_16.render("{}: {:.2f}".format(t, p.time_map[t]),True,(0,0,0))
+                        textRect =text.get_rect()
+                        textRect.bottomright = (self.window_size[0] - 40, y)
+                        y += 40
+                        self.screen.blit(text,textRect)
+                
 
     def show_finish(self, scores):
         face = pygame.Surface((1024,768), pygame.SRCALPHA, 32)
@@ -205,7 +226,6 @@ class Game():
         self.menu['COM1COM2'] = com1com2menu
         self.current_menu = None
         self.com_thinking = False
-        self.time_map = None
         
         self.reversi = Reversi(self.board.board_size)
         self.players = [None, None]
@@ -252,7 +272,7 @@ class Game():
         self.board.show_background()
         if self.curren_game_mode == GameMode.P1VSP2 or self.curren_game_mode == GameMode.P1VSCOM or self.curren_game_mode == GameMode.FINISH or self.curren_game_mode == GameMode.COM1VSCOM2:  
             self.board.update_chess_img_to_screen(self.reversi.state.chess_status)
-            self.board.update_info(self.reversi.state.scores, self.reversi.state.curren_chess_color, self.curren_game_mode, self.com_thinking, self.com_color, self.time_map)  
+            self.board.update_info(self.reversi.state, self.curren_game_mode, self.players)  
             self.check_show_finish()
 
             

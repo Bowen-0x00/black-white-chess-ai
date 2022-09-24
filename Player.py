@@ -1,3 +1,4 @@
+from tkinter import S
 from StrategyEnum import StrategyEnum
 from Greedy import Greedy
 from MonteCarloSearch import UCT
@@ -8,6 +9,8 @@ class Player():
         self.color = color
         self.strategy_enum = strategy_enum
         self.reversi = reversi
+        self.time_map = None
+        self.thinking = False
         if strategy_enum == StrategyEnum.GREEDY_MAXSCORE or strategy_enum == StrategyEnum.GREEDY_MINPOS:
             self.strategy = Greedy(reversi.do_action, strategy_enum, self.color)
         elif strategy_enum == StrategyEnum.HUMAN:
@@ -17,8 +20,11 @@ class Player():
 
     def do(self):
         if self.strategy_enum != StrategyEnum.HUMAN:
-            a, _ = self.strategy.search(self.reversi.state)
-            return self.reversi.do_action(self.reversi.state, a.action)
+            self.thinking = True
+            a, self.time_map = self.strategy.search(self.reversi.state)
+            s = self.reversi.do_action(self.reversi.state, a.action)
+            self.thinking = False
+            return s
         else:
             while self.color == self.reversi.state.curren_chess_color and not self.reversi.is_finish:
                 pass 

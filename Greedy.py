@@ -1,7 +1,7 @@
 from math import inf
 from ChessStateEnum import ChessStateEnum
 from StrategyEnum import StrategyEnum
-import sys
+import time
 
 
 class Greedy():
@@ -11,9 +11,11 @@ class Greedy():
         self.strategy = strategy
     
     def search(self, s0):
+        time_map = {}
         actions = s0.get_actions()
         best_a = None
         max_value = float('-inf')
+        start_time = time.process_time()
         for a in actions:
             s = self.do_action(s0, a.action)
             if self.strategy == StrategyEnum.GREEDY_MAXSCORE:
@@ -21,7 +23,8 @@ class Greedy():
                     best_a = a
             elif self.strategy == StrategyEnum.GREEDY_MINPOS:
                 ...
-        return best_a, None
+        time_map['greedy'] = time.process_time() - start_time
+        return best_a, time_map
 
     def value_maxscore(self, s):
         value = s.scores[ChessStateEnum.BLACK] - s.scores[ChessStateEnum.WHITE]
