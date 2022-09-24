@@ -1,6 +1,6 @@
 
 from enum import Enum
-class ChessState(Enum):
+class ChessStateEnum(Enum):
     BLACK = 0
     WHITE = 1
     VALID = 2
@@ -15,9 +15,9 @@ class ChessState(Enum):
         return self.value
 
 def chess_to_char(c):
-    if c == ChessState.BLACK:
+    if c == ChessStateEnum.BLACK:
         return u'\u25CF'
-    elif c == ChessState.WHITE:
+    elif c == ChessStateEnum.WHITE:
         return u'\u25CB'
     else: 
         return u'\u2B1A'

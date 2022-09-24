@@ -1,11 +1,8 @@
 import random
 import math
-from ChessState import ChessState
+from ChessStateEnum import ChessStateEnum
 import time
 import multiprocessing
-from multiprocessing import  Process
-import threading
-from ThreadWithCallback import ThreadWithCallback
 from KeepAliveMultiProcess import KeepAliveMultiprocessing
 random.seed(4)
 class Node():
@@ -61,6 +58,9 @@ class UCT():
         self.iretation_times.value = l[1]
         self.c.value = l[2]
 
+    def search(self, s0):
+        return self.multi_processor_search(s0)
+
     def multi_processor_search(self, s0):
         self.v0 = Node(s0, None)
         actions = s0.get_actions()
@@ -69,7 +69,7 @@ class UCT():
         self.time_map = {'select': 0, 'simulate': 0, 'back_propagate': 0}
         start_time = time.process_time()
         if not self.keep_alive_multiprocessing:
-            self.keep_alive_multiprocessing = KeepAliveMultiprocessing(self.search, self.success_callback, self.setparam_callback)
+            self.keep_alive_multiprocessing = KeepAliveMultiprocessing(self._search, self.success_callback, self.setparam_callback)
             self.keep_alive_multiprocessing.run()
         
         for a in s0.actions:
@@ -104,14 +104,12 @@ class UCT():
         end_time = time.process_time()
         print('multiprocess actual time: ', end_time-start_time)
         v1, a = self.UCB1(self.v0)
-        print('curren_chess_color: ', v1.state.curren_chess_color)
 
         return a, self.time_map
 
-    def search(self, v0):
+    def _search(self, v0):
         i = 0
         start_time = time.process_time()
-        print('start_time, ', start_time)
         time_map = {'select': 0, 'simulate': 0, 'back_propagate': 0}
         #v0 = Node(s0, None)
         while i < self.iretation_times.value:
@@ -131,7 +129,6 @@ class UCT():
             i += 1
             end_time = time.process_time()
             if end_time > self.time_out.value + start_time:
-                print('end_time, ', end_time)
                 print('time out: {}, iterate times: {}.  actual: {}'.format(self.time_out.value, i, end_time-start_time))
                 break
 
@@ -183,16 +180,16 @@ class UCT():
 
     def get_q_by_player(self, st, state):
         q = self.value(st)
-        if state.curren_chess_color == ChessState.BLACK:
+        if state.curren_chess_color == ChessStateEnum.BLACK:
             return -q
         else:
             return q
 
     def value(self, st):
-        if self.color == ChessState.BLACK:
-            return st.scores[ChessState.BLACK] - st.scores[ChessState.WHITE]
+        if self.color == ChessStateEnum.BLACK:
+            return st.scores[ChessStateEnum.BLACK] - st.scores[ChessStateEnum.WHITE]
         else:
-            return st.scores[ChessState.WHITE] - st.scores[ChessState.BLACK]
+            return st.scores[ChessStateEnum.WHITE] - st.scores[ChessStateEnum.BLACK]
     def UCB(self, v, v1):
         return v1.q / v1.n + self.c.value * math.sqrt(2*math.log(v.n)/ v1.n)
 
