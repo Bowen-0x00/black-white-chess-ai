@@ -140,7 +140,7 @@ class Game():
         self.widget_font = pygame.font.Font('font/云峰静龙行书.ttf', 32)
         #mytheme.widget_font = self.widget_font
         self.menu = {}
-        main_menu = pygame_menu.Menu('Menu', 450, 300, theme=mytheme)
+        main_menu = pygame_menu.Menu('Main Menu', 450, 300, theme=mytheme)
 
         main_menu.add.button('P1 vs. P2', self.menu_callback_start_game, GameMode.P1VSP2)
         #self.main_menu.add.button('', self.menu_callback_start_game, GameMode.P1VSCOM)
@@ -154,7 +154,7 @@ class Game():
         self.time_out = 1
         self.iretation_times = 100
         self.c = 2
-        com1menu = pygame_menu.Menu('Menu', 450, 500, theme=mytheme)
+        com1menu = pygame_menu.Menu('P1 VS. COM Menu', 450, 500, theme=mytheme)
         com1menu.add.button('Start', self.menu_callback_start_game, GameMode.P1VSCOM)
         com1menu.add.selector('COM1 color:', [('Black', ChessState.BLACK), ('White', ChessState.WHITE)],
                   onchange = self.com1menu_callback_setcolor)
@@ -173,7 +173,7 @@ class Game():
         com1menu.parent = 'MAIN'
         com1menu.flag = False
         com1menu.disable()
-        com1com2menu = pygame_menu.Menu('Menu', 450, 400, theme=mytheme)
+        com1com2menu = pygame_menu.Menu('COM1 VS. COM2', 450, 400, theme=mytheme)
         com1com2menu.add.button('Start', self.menu_callback_start_game, GameMode.COM1VSCOM2)
         com1com2menu.add.dropselect(
             title='COM1\'s tactic',
@@ -193,6 +193,7 @@ class Game():
         self.menu['MAIN'] = main_menu
         self.menu['COM1'] = com1menu
         self.menu['COM1COM2'] = com1com2menu
+        self.current_menu = None
         self.com_thinking = False
         self.time_map = None
         self.com_color = None
@@ -219,9 +220,11 @@ class Game():
         for m in self.menu:
             self.menu[m].flag = False
             self.menu[m].disable()
+        self.current_menu = None
         if key:
             self.menu[key].flag = True
             self.menu[key].enable()
+            self.current_menu = self.menu[key]
 
     def com1menu_callback_setcolor(self, a, color):
         self.com_color = color
@@ -241,10 +244,15 @@ class Game():
             self.board.update_chess_img_to_screen(self.reversi.state.chess_status)
             self.board.update_info(self.reversi.state.scores, self.reversi.state.curren_chess_color, self.curren_game_mode, self.com_thinking, self.com_color, self.time_map)  
             self.check_show_finish()
-            pygame.mouse.set_cursor((0,0),self.board.black_img if self.reversi.state.curren_chess_color == ChessState.BLACK else self.board.white_img)
+
+            
         elif self.curren_game_mode == GameMode.FINISH:
             self.finish_text_rect = self.board.show_finish(self.reversi.state.scores)
-         
+
+        if self.current_menu != None:
+            pygame.mouse.set_cursor(pygame.cursors.Cursor(pygame.SYSTEM_CURSOR_ARROW))
+        elif self.curren_game_mode == GameMode.P1VSP2 or self.curren_game_mode == GameMode.P1VSCOM:
+            pygame.mouse.set_cursor((0,0), self.board.black_img if self.reversi.state.curren_chess_color == ChessState.BLACK else self.board.white_img)
     def process_chess_mouse_event(self, x_pos, y_pos):
         if self.curren_game_mode == GameMode.P1VSCOM and self.reversi.state.curren_chess_color == self.com_color:
             return
@@ -328,20 +336,30 @@ class Game():
                         else:
                             self.show_menu('COM1COM2')
                     elif self.curren_game_mode == GameMode.MENU:
-                        self.show_menu([self.menu[m] for m in self.menu if self.menu[m].flag == True][0].parent)
+                        menu = [self.menu[m] for m in self.menu if self.menu[m].flag == True][0]
+                        self.show_menu(menu.parent)
     def run(self):
         clock = pygame.time.Clock()
+        
         while True:
-            events = pygame.event.get()
+            
             self.update_board()
             for m in self.menu:
                 if self.menu[m].flag and self.menu[m].is_enabled():
+                    events = pygame.event.get()
                     self.menu[m].update(events)
                     try:
                         self.menu[m].draw(self.board.screen)
                     except RuntimeError as e:
                         ...
-            self.process_event(events)
+                    for event in events:
+                        if event.type == pygame.KEYDOWN:
+                            if event.key == pygame.K_ESCAPE:
+                                menu = [self.menu[m] for m in self.menu if self.menu[m].flag == True][0]
+                                self.show_menu(menu.parent)
+            if self.curren_game_mode != GameMode.MENU:
+                events = pygame.event.get()
+                self.process_event(events)
             pygame.display.update()
             clock.tick(60)
     def debug_init_state(self):
