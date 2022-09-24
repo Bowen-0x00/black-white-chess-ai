@@ -54,12 +54,12 @@ class UCT():
         self.time_map['simulate'] = t['simulate'] if t['simulate'] > self.time_map['simulate'] else self.time_map['simulate']
         self.time_map['back_propagate'] = t['back_propagate'] if t['back_propagate'] > self.time_map['back_propagate'] else self.time_map['back_propagate']
     
-    def setparam(self, t, iretation_times, c):
+    def set_param(self, param):
         # for i in range(multiprocessing.cpu_count()):
         #     self.keep_alive_multiprocessing.q_param.put([i, t, iretation_times, c])
-        self.param.time_out = t
-        self.param.iretation_times = iretation_times
-        self.param.c = c
+        self.param.time_out = param.time_out
+        self.param.iretation_times = param.iretation_times
+        self.param.c = param.c
 
     # def setparam_callback(self, l):
     #     self.time_out.value = l[0]

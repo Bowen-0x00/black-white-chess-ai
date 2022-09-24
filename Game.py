@@ -173,7 +173,7 @@ class Game():
 
         main_menu.add.button('P1 vs. P2', self.menu_callback_start_game, GameMode.P1VSP2)
         #self.main_menu.add.button('', self.menu_callback_start_game, GameMode.P1VSCOM)
-        main_menu.add.button('P1 vs. Com', self.show_menu, 'COM1')
+        main_menu.add.button('P1 vs. COM', self.show_menu, 'COM1')
     
         main_menu.add.button('COM1 vs. COM2', self.show_menu, 'COM1COM2')
         main_menu.add.button('Quit', pygame_menu.events.EXIT)
@@ -205,11 +205,11 @@ class Game():
                 com = 1
                 )
         com1menu.add.range_slider('Time out', self.uct_params[0].time_out, (0.5, 60), 0.5,
-                      value_format=lambda x: str(int(x*2)/2), onchange=self.set_timeout)
+                      value_format=lambda x: str(int(x*2)/2), onchange=self.set_uct_param, com=1, param='time_out')
         com1menu.add.range_slider('Iterations', self.uct_params[0].iretation_times, (10, 100), 1,
-                value_format=lambda x: str(int(x)), onchange=self.set_iteration)
+                value_format=lambda x: str(int(x)), onchange=self.set_uct_param, com=1, param='iretation_times')
         com1menu.add.range_slider('c', self.uct_params[0].c, (1, 100), 1,
-            value_format=lambda x: str(int(x)), onchange=self.set_c)
+            value_format=lambda x: str(int(x)), onchange=self.set_uct_param, com=1, param='c')
         com1menu.parent = 'MAIN'
         com1menu.flag = False
         com1menu.disable()
@@ -243,11 +243,11 @@ class Game():
                 com = 2
                 )
         com1com2menu.add.range_slider('Time out', self.uct_params[0].time_out, (0.5, 60), 0.5,
-                      value_format=lambda x: str(int(x*2)/2), onchange=self.set_timeout)
+                      value_format=lambda x: str(int(x*2)/2), onchange=self.set_uct_param, com=1, param='time_out')
         com1com2menu.add.range_slider('Iterations', self.uct_params[0].iretation_times, (10, 100), 1,
-                value_format=lambda x: str(int(x)), onchange=self.set_iteration)
+                value_format=lambda x: str(int(x)), onchange=self.set_uct_param, com=1, param='iretation_times')
         com1com2menu.add.range_slider('c', self.uct_params[0].c, (1, 100), 1,
-            value_format=lambda x: str(int(x)), onchange=self.set_c)
+            value_format=lambda x: str(int(x)), onchange=self.set_uct_param, com=1, param='c')
         com1com2menu.parent = 'MAIN'
         com1com2menu.flag = False
         com1com2menu.disable()
@@ -264,21 +264,27 @@ class Game():
     def change_com_strategy(self, selected, value, **kwargs):
         com_number = kwargs['com']
         self.com_strategy[com_number - 1] = value
+    def set_uct_param(self, value, **kwargs):
+        com_number = kwargs['com']
+        key = kwargs['param']
+        self.uct_params[com_number-1].__dict__[key] = value
+        if self.players[com_number-1]:
+            self.players[com_number-1].strategy.set_param(self.uct_params[com_number-1])
 
-    def set_timeout(self, t):
-        self.time_out = t
-        if uct:
-            uct.setparam(self.time_out, self.iretation_times, self.c)
-            print('time_out: ', self.time_out)
+    # def set_timeout(self, t):
+    #     self.time_out = t
+    #     if uct:
+    #         uct.setparam(self.time_out, self.iretation_times, self.c)
+    #         print('time_out: ', self.time_out)
 
-    def set_iteration(self, i):
-        self.iretation_times = i
-        if uct:
-            uct.setparam(self.time_out, self.iretation_times, self.c)
-    def set_c(self, c):
-        self.c = c
-        if uct:
-            uct.setparam(self.time_out, self.iretation_times, self.c)
+    # def set_iteration(self, i):
+    #     self.iretation_times = i
+    #     if uct:
+    #         uct.setparam(self.time_out, self.iretation_times, self.c)
+    # def set_c(self, c):
+    #     self.c = c
+    #     if uct:
+    #         uct.setparam(self.time_out, self.iretation_times, self.c)
 
     def show_menu(self, key):
         for m in self.menu:
@@ -477,6 +483,8 @@ class Game():
                 # uct.c = self.c
                 self.players[0] = Player(self.com_strategy[0], self.com_color, self.reversi)
                 self.players[1] = Player(StrategyEnum.HUMAN, self.reversi.get_reversed_color(self.com_color), self.reversi)
+                if self.com_strategy[0] == StrategyEnum.UCT:
+                    self.players[0].strategy.set_param(self.uct_params[0])
             elif mode == GameMode.P1VSP2:
                 self.curren_game_mode = GameMode.P1VSP2
                 self.players[0] = Player(StrategyEnum.HUMAN, ChessStateEnum.BLACK, self.reversi)
@@ -485,6 +493,10 @@ class Game():
                 self.curren_game_mode = GameMode.COM1VSCOM2
                 self.players[0] = Player(self.com_strategy[0], ChessStateEnum.BLACK, self.reversi)
                 self.players[1] = Player(self.com_strategy[1], ChessStateEnum.WHITE, self.reversi)
+                if self.com_strategy[0] == StrategyEnum.UCT:
+                    self.players[0].strategy.set_param(self.uct_params[0])
+                if self.com_strategy[1] == StrategyEnum.UCT:
+                    self.players[1].strategy.set_param(self.uct_params[1])
             #self.menu_flag = False
             self.reversi.init_game_state()
             #self.debug_init_state()
