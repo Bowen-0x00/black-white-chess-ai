@@ -6,13 +6,12 @@ import sys
 from enum import Enum
 import pygame_menu
 from ChessStateEnum import ChessStateEnum, print_board
-from MonteCarloSearch import UCT
+from MonteCarloSearch import UCT, UCTParam
 from StrategyEnum import StrategyEnum
 from ThreadWithCallback import ThreadWithCallback
 from Reversi import Reversi
 import time
 from Player import Player
-
 
 uct = None
 game = None
@@ -181,9 +180,12 @@ class Game():
         main_menu.flag = True
         main_menu.parent = None
 
+        self.uct_params = [UCTParam(100, 1, 2), UCTParam(100, 1, 2)]
         self.time_out = 1
         self.iretation_times = 100
         self.c = 2
+
+        self.com_strategy = [None, None]
         com1menu = pygame_menu.Menu('P1 VS. COM Menu', 450, 500, theme=mytheme)
         com1menu.add.button('Start', self.menu_callback_start_game, GameMode.P1VSCOM)
         self.com_color = ChessStateEnum.BLACK
@@ -191,36 +193,65 @@ class Game():
                   onchange = self.com1menu_callback_setcolor)
         com1menu.add.dropselect(
             title='COM1\'s tactic',
-            items=[('1', 0),
-                ('2', 1)],
+            items=[('MCTS', StrategyEnum.UCT),
+                ('Greedy-Maxscore', StrategyEnum.GREEDY_MAXSCORE),
+                ('Greedy-Minpos', StrategyEnum.GREEDY_MINPOS)
+                ],
+                default=0,
+                placeholder_add_to_selection_box=False,
                 font_size=32,
-                selection_option_font_size=20)
-        com1menu.add.range_slider('Time out', self.time_out, (0.5, 60), 0.5,
+                selection_option_font_size=20,
+                onchange=self.change_com_strategy,
+                com = 1
+                )
+        com1menu.add.range_slider('Time out', self.uct_params[0].time_out, (0.5, 60), 0.5,
                       value_format=lambda x: str(int(x*2)/2), onchange=self.set_timeout)
-        com1menu.add.range_slider('Iterations', self.iretation_times, (10, 100), 1,
+        com1menu.add.range_slider('Iterations', self.uct_params[0].iretation_times, (10, 100), 1,
                 value_format=lambda x: str(int(x)), onchange=self.set_iteration)
-        com1menu.add.range_slider('c', self.c, (1, 100), 1,
+        com1menu.add.range_slider('c', self.uct_params[0].c, (1, 100), 1,
             value_format=lambda x: str(int(x)), onchange=self.set_c)
         com1menu.parent = 'MAIN'
         com1menu.flag = False
         com1menu.disable()
-        com1com2menu = pygame_menu.Menu('COM1 VS. COM2', 450, 400, theme=mytheme)
+        com1com2menu = pygame_menu.Menu('COM1 VS. COM2', 450, 450, theme=mytheme)
         com1com2menu.add.button('Start', self.menu_callback_start_game, GameMode.COM1VSCOM2)
+        
         com1com2menu.add.dropselect(
             title='COM1\'s tactic',
-            items=[('1', 0),
-                ('2', 1)],
+            items=[('MCTS', StrategyEnum.UCT),
+                ('Greedy-Maxscore', StrategyEnum.GREEDY_MAXSCORE),
+                ('Greedy-Minpos', StrategyEnum.GREEDY_MINPOS)
+                ],
+                default=0,
+                placeholder_add_to_selection_box=False,
                 font_size=32,
-                selection_option_font_size=20)
+                selection_option_font_size=20,
+                onchange=self.change_com_strategy,
+                com = 1
+                )
         com1com2menu.add.dropselect(
             title='COM2\'s tactic',
-            items=[('1', 0),
-                ('2', 1)],
+            items=[('MCTS', StrategyEnum.UCT),
+                ('Greedy-Maxscore', StrategyEnum.GREEDY_MAXSCORE),
+                ('Greedy-Minpos', StrategyEnum.GREEDY_MINPOS)
+                ],
+                default=1,
+                placeholder_add_to_selection_box=False,
                 font_size=32,
-                selection_option_font_size=20)
+                selection_option_font_size=20,
+                onchange=self.change_com_strategy,
+                com = 2
+                )
+        com1com2menu.add.range_slider('Time out', self.uct_params[0].time_out, (0.5, 60), 0.5,
+                      value_format=lambda x: str(int(x*2)/2), onchange=self.set_timeout)
+        com1com2menu.add.range_slider('Iterations', self.uct_params[0].iretation_times, (10, 100), 1,
+                value_format=lambda x: str(int(x)), onchange=self.set_iteration)
+        com1com2menu.add.range_slider('c', self.uct_params[0].c, (1, 100), 1,
+            value_format=lambda x: str(int(x)), onchange=self.set_c)
         com1com2menu.parent = 'MAIN'
         com1com2menu.flag = False
         com1com2menu.disable()
+        
         self.menu['MAIN'] = main_menu
         self.menu['COM1'] = com1menu
         self.menu['COM1COM2'] = com1com2menu
@@ -229,7 +260,10 @@ class Game():
         
         self.reversi = Reversi(self.board.board_size)
         self.players = [None, None]
-
+#onchange((selected_item, selected_index), a, b, c..., **kwargs)
+    def change_com_strategy(self, selected, value, **kwargs):
+        com_number = kwargs['com']
+        self.com_strategy[com_number - 1] = value
 
     def set_timeout(self, t):
         self.time_out = t
@@ -398,7 +432,8 @@ class Game():
                         if event.type == pygame.KEYDOWN:
                             if event.key == pygame.K_ESCAPE:
                                 menu = [self.menu[m] for m in self.menu if self.menu[m].flag == True][0]
-                                self.show_menu(menu.parent)
+                                if not (self.curren_game_mode == GameMode.MENU and menu.parent == None):
+                                    self.show_menu(menu.parent)
             if self.curren_game_mode != GameMode.MENU:
                 events = pygame.event.get()
                 self.process_event(events)
@@ -440,7 +475,7 @@ class Game():
                 # uct.time_out = self.time_out 
                 # uct.iretation_times = self.iretation_times
                 # uct.c = self.c
-                self.players[0] = Player(StrategyEnum.UCT, self.com_color, self.reversi)
+                self.players[0] = Player(self.com_strategy[0], self.com_color, self.reversi)
                 self.players[1] = Player(StrategyEnum.HUMAN, self.reversi.get_reversed_color(self.com_color), self.reversi)
             elif mode == GameMode.P1VSP2:
                 self.curren_game_mode = GameMode.P1VSP2
@@ -448,8 +483,8 @@ class Game():
                 self.players[1] = Player(StrategyEnum.HUMAN, ChessStateEnum.WHITE, self.reversi)
             elif mode == GameMode.COM1VSCOM2:
                 self.curren_game_mode = GameMode.COM1VSCOM2
-                self.players[0] = Player(StrategyEnum.UCT, ChessStateEnum.BLACK, self.reversi)
-                self.players[1] = Player(StrategyEnum.GREEDY_MAXSCORE, ChessStateEnum.WHITE, self.reversi)
+                self.players[0] = Player(self.com_strategy[0], ChessStateEnum.BLACK, self.reversi)
+                self.players[1] = Player(self.com_strategy[1], ChessStateEnum.WHITE, self.reversi)
             #self.menu_flag = False
             self.reversi.init_game_state()
             #self.debug_init_state()

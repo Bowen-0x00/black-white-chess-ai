@@ -1,9 +1,11 @@
+from multiprocessing.managers import BaseManager
 import random
 import math
 from ChessStateEnum import ChessStateEnum
 import time
 import multiprocessing
 from KeepAliveMultiProcess import KeepAliveMultiprocessing
+
 random.seed(4)
 class Node():
     def __init__(self, state, action):
@@ -14,6 +16,11 @@ class Node():
         self.n = 0           #numbers of be searched      
         self.q = 0           #value
         self.visited = False
+class UCTParam():
+    def __init__(self, i, t, c):
+        self.iretation_times = i
+        self.time_out = t
+        self.c = c
 
 class UCT():
     iretation_times = 100
@@ -26,9 +33,10 @@ class UCT():
         self.color = color
         self.v0 = None
         self.keep_alive_multiprocessing = None
-        self.iretation_times = multiprocessing.Manager().Value(int, 100)
-        self.time_out = multiprocessing.Manager().Value(float, 1)
-        self.c = multiprocessing.Manager().Value(int, 2)
+        self.param = multiprocessing.Manager().Namespace()
+        self.param.iretation_times = 100
+        self.param.time_out = 1
+        self.param.c = 3
 
     def is_terminal(self, s):
         return self.check_finish(s)
@@ -49,14 +57,14 @@ class UCT():
     def setparam(self, t, iretation_times, c):
         # for i in range(multiprocessing.cpu_count()):
         #     self.keep_alive_multiprocessing.q_param.put([i, t, iretation_times, c])
-        self.time_out.value = t
-        self.iretation_times.value = iretation_times
-        self.c.value = c
+        self.param.time_out = t
+        self.param.iretation_times = iretation_times
+        self.param.c = c
 
-    def setparam_callback(self, l):
-        self.time_out.value = l[0]
-        self.iretation_times.value = l[1]
-        self.c.value = l[2]
+    # def setparam_callback(self, l):
+    #     self.time_out.value = l[0]
+    #     self.iretation_times.value = l[1]
+    #     self.c.value = l[2]
 
     def search(self, s0):
         return self.multi_processor_search(s0)
@@ -69,7 +77,7 @@ class UCT():
         self.time_map = {'select': 0, 'simulate': 0, 'back_propagate': 0}
         start_time = time.process_time()
         if not self.keep_alive_multiprocessing:
-            self.keep_alive_multiprocessing = KeepAliveMultiprocessing(self._search, self.success_callback, self.setparam_callback)
+            self.keep_alive_multiprocessing = KeepAliveMultiprocessing(self._search, self.success_callback)
             self.keep_alive_multiprocessing.run()
         
         for a in s0.actions:
@@ -112,7 +120,7 @@ class UCT():
         start_time = time.process_time()
         time_map = {'select': 0, 'simulate': 0, 'back_propagate': 0}
         #v0 = Node(s0, None)
-        while i < self.iretation_times.value:
+        while i < self.param.iretation_times:
             t1 = time.process_time()
             v1 = self.select(v0)
             t = time.process_time()
@@ -128,8 +136,8 @@ class UCT():
 
             i += 1
             end_time = time.process_time()
-            if end_time > self.time_out.value + start_time:
-                print('time out: {}, iterate times: {}.  actual: {}'.format(self.time_out.value, i, end_time-start_time))
+            if end_time > self.param.time_out + start_time:
+                print('time out: {}, iterate times: {}.  actual: {}'.format(self.param.time_out, i, end_time-start_time))
                 break
 
         # v1, a = self.UCB1(v0)
@@ -191,7 +199,7 @@ class UCT():
         else:
             return st.scores[ChessStateEnum.WHITE] - st.scores[ChessStateEnum.BLACK]
     def UCB(self, v, v1):
-        return v1.q / v1.n + self.c.value * math.sqrt(2*math.log(v.n)/ v1.n)
+        return v1.q / v1.n + self.param.c * math.sqrt(2*math.log(v.n)/ v1.n)
 
     def UCB1(self, v):
         v_next = max(v.children, key=lambda x: self.UCB(v, x))

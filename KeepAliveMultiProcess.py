@@ -3,13 +3,13 @@ import multiprocessing
 
 class KeepAliveMultiprocessing():
 
-    def __init__(self, target, callback, setparam, *args):
+    def __init__(self, target, callback, *args):
         self.q = multiprocessing.Queue()
         self.q_return = multiprocessing.Queue()
         #self.q_param = multiprocessing.Queue()
         self.cpu_count = multiprocessing.cpu_count()
         self.target = target
-        self.setparam = setparam
+        #self.setparam = setparam
         self.args = args
         self.callback = callback
 
