@@ -1,9 +1,11 @@
 from logging import exception
+from tkinter import Menu
+from unittest import main
 import pygame
 import sys
 from enum import Enum
 import pygame_menu
-from ChessState import ChessState
+from ChessState import ChessState, print_board
 from MonteCarloSearch import UCT
 from ThreadWithCallback import ThreadWithCallback
 from Reversi import Reversi
@@ -119,20 +121,6 @@ class Board():
         finish_text_rect.center = (510, 390)
         self.screen.blit(text,finish_text_rect)
         return finish_text_rect
-
-    def chess_to_char(self, c):
-        if c == ChessState.BLACK:
-            return u'\u25CF'
-        elif c == ChessState.WHITE:
-            return u'\u25CB'
-        else: 
-            return u'\u2B1A'
-        
-    def print_board(self, chess_state):
-        for x in range(self.board_size[0]):
-            print("")
-            for y in range(self.board_size[1]):
-                print(" {}".format(self.chess_to_char(chess_state[x][y])), end="")
  
 class Game():
     def __init__(self) -> None:
@@ -151,37 +139,60 @@ class Game():
         mytheme = mytheme.set_background_color_opacity(0.7)
         self.widget_font = pygame.font.Font('font/云峰静龙行书.ttf', 32)
         #mytheme.widget_font = self.widget_font
-        self.menu = pygame_menu.Menu('Menu', 450, 500, theme=mytheme)
+        self.menu = {}
+        main_menu = pygame_menu.Menu('Menu', 450, 300, theme=mytheme)
 
-        self.menu.add.button('P1 vs. P2', self.menu_callback_start_game, GameMode.P1VSP2)
-        #self.menu.add.button('', self.menu_callback_start_game, GameMode.P1VSCOM)
-        self.menu.add.selector('P1 vs. Com :', [('Black', ChessState.BLACK), ('White', ChessState.WHITE)],
-                  onreturn = self.menu_callback_start_com_game)
-        
-        self.menu_flag = True
-        self.menu.add.button('COM1 vs. COM2', self.menu_callback_start_game, GameMode.COM1VSCOM2)
-        self.menu.add.dropselect(
-        title='COM1\'s tactic',
-        items=[('1', 0),
-            ('2', 1)],
-            font_size=32,
-            selection_option_font_size=20)
-        self.menu.add.dropselect(
-        title='COM2\'s tactic',
-        items=[('1', 0),
-            ('2', 1)],
-            font_size=32,
-            selection_option_font_size=20)
+        main_menu.add.button('P1 vs. P2', self.menu_callback_start_game, GameMode.P1VSP2)
+        #self.main_menu.add.button('', self.menu_callback_start_game, GameMode.P1VSCOM)
+        main_menu.add.button('P1 vs. Com', self.show_menu, 'COM1')
+    
+        main_menu.add.button('COM1 vs. COM2', self.show_menu, 'COM1COM2')
+        main_menu.add.button('Quit', pygame_menu.events.EXIT)
+        main_menu.flag = True
+        main_menu.parent = None
+
         self.time_out = 1
         self.iretation_times = 100
         self.c = 2
-        self.menu.add.range_slider('Time out', self.time_out, (0.5, 60), 0.5,
+        com1menu = pygame_menu.Menu('Menu', 450, 500, theme=mytheme)
+        com1menu.add.button('Start', self.menu_callback_start_game, GameMode.P1VSCOM)
+        com1menu.add.selector('COM1 color:', [('Black', ChessState.BLACK), ('White', ChessState.WHITE)],
+                  onchange = self.com1menu_callback_setcolor)
+        com1menu.add.dropselect(
+            title='COM1\'s tactic',
+            items=[('1', 0),
+                ('2', 1)],
+                font_size=32,
+                selection_option_font_size=20)
+        com1menu.add.range_slider('Time out', self.time_out, (0.5, 60), 0.5,
                       value_format=lambda x: str(int(x*2)/2), onreturn=self.set_timeout)
-        self.menu.add.range_slider('Iterations', self.iretation_times, (10, 100), 1,
+        com1menu.add.range_slider('Iterations', self.iretation_times, (10, 100), 1,
                 value_format=lambda x: str(int(x)), onreturn=self.set_iteration)
-        self.menu.add.range_slider('c', self.c, (1, 100), 1,
+        com1menu.add.range_slider('c', self.c, (1, 100), 1,
             value_format=lambda x: str(int(x)), onreturn=self.set_c)
-        self.menu.add.button('Quit', pygame_menu.events.EXIT)
+        com1menu.parent = 'MAIN'
+        com1menu.flag = False
+        com1menu.disable()
+        com1com2menu = pygame_menu.Menu('Menu', 450, 400, theme=mytheme)
+        com1com2menu.add.button('Start', self.menu_callback_start_game, GameMode.COM1VSCOM2)
+        com1com2menu.add.dropselect(
+            title='COM1\'s tactic',
+            items=[('1', 0),
+                ('2', 1)],
+                font_size=32,
+                selection_option_font_size=20)
+        com1com2menu.add.dropselect(
+            title='COM2\'s tactic',
+            items=[('1', 0),
+                ('2', 1)],
+                font_size=32,
+                selection_option_font_size=20)
+        com1com2menu.parent = 'MAIN'
+        com1com2menu.flag = False
+        com1com2menu.disable()
+        self.menu['MAIN'] = main_menu
+        self.menu['COM1'] = com1menu
+        self.menu['COM1COM2'] = com1com2menu
         self.com_thinking = False
         self.time_map = None
         self.com_color = None
@@ -203,9 +214,18 @@ class Game():
         self.c = c
         if uct:
             uct.setparam(self.time_out, self.iretation_times, self.c)
-    def menu_callback_start_com_game(self, a, color):
+
+    def show_menu(self, key):
+        for m in self.menu:
+            self.menu[m].flag = False
+            self.menu[m].disable()
+        if key:
+            self.menu[key].flag = True
+            self.menu[key].enable()
+
+    def com1menu_callback_setcolor(self, a, color):
         self.com_color = color
-        self.menu_callback_start_game(GameMode.P1VSCOM)
+        #self.menu_callback_start_game(GameMode.P1VSCOM)
 
 
     def check_show_finish(self):
@@ -251,10 +271,6 @@ class Game():
             #t = threading.Thread(target=target, args=(self, ))
             t = ThreadWithCallback(target=target, args=(), callback=self.com_do_action_callback, callback_args=())
             t.start()
-    def return_menu(self):
-        self.curren_game_mode = GameMode.MENU
-        self.menu_flag = True
-        self.menu.enable()
 
     def process_event(self, events):
         board_rect = self.board.board_rect
@@ -263,7 +279,9 @@ class Game():
                 pygame.quit()
                 sys.exit()
             elif event.type == pygame.MOUSEBUTTONUP:
-                if not self.reversi.is_finish and event.pos[0] > board_rect[0] and event.pos[0] < board_rect[0] + board_rect[2]\
+                if  (self.curren_game_mode == GameMode.P1VSP2 or self.curren_game_mode == GameMode.P1VSCOM)\
+                    and len([m for m in self.menu if  self.menu[m].flag == True]) == 0\
+                    and event.pos[0] > board_rect[0] and event.pos[0] < board_rect[0] + board_rect[2]\
                     and event.pos[1] > board_rect[1] and event.pos[1] < board_rect[1] + board_rect[3]:
                     self.process_chess_mouse_event(event.pos[0] - board_rect[0], event.pos[1] - board_rect[1])
                 if self.reversi.is_finish:
@@ -277,7 +295,8 @@ class Game():
                         # update_board()
                         self.board.show_background()
                         #pygame.event.clear()
-                        self.return_menu()
+                        self.curren_game_mode = GameMode.MENU
+                        self.show_menu('MAIN')
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_SPACE:
                     self.test_flag = True
@@ -291,26 +310,37 @@ class Game():
                     #a = uct.search(self.reversi.state)
                     #print(a)
                     #print(s_new.curren_chess_color)
-                    self.board.print_board(self.reversi.state.chess_status)
+                    print_board(self.reversi.state.chess_status)
                 elif event.key == pygame.K_ESCAPE:
-                    if not self.menu_flag:
-                        self.menu_flag = True
-                        self.menu.enable()
-                    else:
-                        self.menu_flag = False
-                        self.menu.disable()
-
+                    if self.curren_game_mode == GameMode.P1VSP2:
+                        if self.menu['MAIN'].flag:
+                            self.show_menu(None)
+                        else:
+                            self.show_menu('MAIN')
+                    elif self.curren_game_mode == GameMode.P1VSCOM:
+                        if self.menu['COM1'].flag:
+                            self.show_menu(None)
+                        else:
+                            self.show_menu('COM1')
+                    elif self.curren_game_mode == GameMode.COM1VSCOM2:
+                        if self.menu['COM1COM2'].flag:
+                            self.show_menu(None)
+                        else:
+                            self.show_menu('COM1COM2')
+                    elif self.curren_game_mode == GameMode.MENU:
+                        self.show_menu([self.menu[m] for m in self.menu if self.menu[m].flag == True][0].parent)
     def run(self):
         clock = pygame.time.Clock()
         while True:
             events = pygame.event.get()
             self.update_board()
-            if self.menu_flag and self.menu.is_enabled():
-                self.menu.update(events)
-                try:
-                    self.menu.draw(self.board.screen)
-                except RuntimeError as e:
-                    ...
+            for m in self.menu:
+                if self.menu[m].flag and self.menu[m].is_enabled():
+                    self.menu[m].update(events)
+                    try:
+                        self.menu[m].draw(self.board.screen)
+                    except RuntimeError as e:
+                        ...
             self.process_event(events)
             pygame.display.update()
             clock.tick(60)
@@ -343,25 +373,25 @@ class Game():
 
     def menu_callback_start_game(self, mode):
         global uct
-        if mode == GameMode.P1VSCOM:
-            self.curren_game_mode = GameMode.P1VSCOM
-            uct = UCT(self.reversi.do_action, self.reversi.check_finish, self.com_color)
-            # uct.time_out = self.time_out 
-            # uct.iretation_times = self.iretation_times
-            # uct.c = self.c
-        elif mode == GameMode.P1VSP2:
-            self.curren_game_mode = GameMode.P1VSP2
+        if mode != GameMode.MENU and mode != GameMode.FINISH:
+            if mode == GameMode.P1VSCOM:
+                self.curren_game_mode = GameMode.P1VSCOM
+                uct = UCT(self.reversi.do_action, self.reversi.check_finish, self.com_color)
+                # uct.time_out = self.time_out 
+                # uct.iretation_times = self.iretation_times
+                # uct.c = self.c
+            elif mode == GameMode.P1VSP2:
+                self.curren_game_mode = GameMode.P1VSP2
 
-        self.menu_flag = False
-        self.reversi.init_game_state()
-        #self.debug_init_state()
-        #update_chess_img_to_screen()
-        self.reversi.update_valid_state(self.reversi.state)
-        self.update_board()
-        self.menu.close()
-        self.menu.disable()
+            self.menu_flag = False
+            self.reversi.init_game_state()
+            #self.debug_init_state()
+            #update_chess_img_to_screen()
+            self.reversi.update_valid_state(self.reversi.state)
+            self.update_board()
+            self.show_menu(None)
 
-        self.com_do_action()
+            self.com_do_action()
 
 
 

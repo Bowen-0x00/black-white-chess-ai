@@ -17,19 +17,7 @@ class Node():
         self.n = 0           #numbers of be searched      
         self.q = 0           #value
         self.visited = False
-def chess_to_char(c):
-    if c == ChessState.BLACK:
-        return u'\u25CF'
-    elif c == ChessState.WHITE:
-        return u'\u25CB'
-    else: 
-        return u'\u2B1A'
-    
-def print_board(chess_state):
-    for x in range(8):
-        print("")
-        for y in range(8):
-            print(" {}".format(chess_to_char(chess_state[x][y])), end="")
+
 class UCT():
     iretation_times = 100
     c = 2
@@ -83,7 +71,7 @@ class UCT():
         if not self.keep_alive_multiprocessing:
             self.keep_alive_multiprocessing = KeepAliveMultiprocessing(self.search, self.success_callback, self.setparam_callback)
             self.keep_alive_multiprocessing.run()
-
+        
         for a in s0.actions:
             s = self.do_action(s0, a.action)  
             v = Node(s, a)

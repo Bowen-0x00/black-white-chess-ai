@@ -15,7 +15,7 @@ class KeepAliveMultiprocessing():
 
     def run(self):
         for i in range(self.cpu_count):
-            p = multiprocessing.Process(target=self.loop, args = (self.q), name = ''.format('Reversi: {}'.format(str(i))))
+            p = multiprocessing.Process(target=self.loop, args = (self.q, ), name = ''.format('Reversi: {}'.format(str(i))))
             p.daemon = True
             p.start()
 
