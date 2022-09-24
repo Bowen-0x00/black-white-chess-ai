@@ -6,6 +6,14 @@ class ChessState(Enum):
     VALID = 2
     EMPTY = 3
 
+    def __new__(cls, value):
+        member = object.__new__(cls)
+        member._value_ = value
+
+        return member
+    def __int__(self):
+        return self.value
+
 def chess_to_char(c):
     if c == ChessState.BLACK:
         return u'\u25CF'

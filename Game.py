@@ -42,7 +42,8 @@ class Board():
         self.white_img = pygame.image.load("image/s_chess_white.png").convert_alpha()
         self.valid_img = pygame.image.load("image/s_chess_valid.png").convert_alpha()
         self.finish_img = pygame.image.load("image/dialog2.png").convert_alpha()
-        self.screen.blit(self.bg_img, (0, 0))
+        self.circle_img = pygame.image.load("image/circle2.png").convert_alpha()
+        #self.screen.blit(self.bg_img, (0, 0))
 
         #mytheme.title = False
         #menu = pygame_menu.Menu('Welcome', 400, 300, theme=pygame_menu.themes.THEME_DARK)
@@ -85,8 +86,10 @@ class Board():
         textRect =text.get_rect() 
         textRect.center = (self.score_pos_white[0], self.score_pos_white[1] + 80)
         self.screen.blit(text,textRect)
-        blink_rect = self.black_text_rect if curren_chess_color == ChessState.BLACK else self.white_text_rect
-        pygame.draw.rect(self.screen, (50, 50, 50), blink_rect, 2)
+        rect = self.circle_img.get_rect()
+        rect.center = self.black_text_rect.center if curren_chess_color == ChessState.BLACK else self.white_text_rect.center
+        # pygame.draw.rect(self.screen, (50, 50, 50), blink_rect, 2)
+        self.screen.blit(self.circle_img, rect)
         if curren_game_mode == GameMode.P1VSCOM:
             text = self.text_font_32.render("Status: {}".format('Thinking...' if com_thinking else "Done"),True,(0,0,0))
             textRect =text.get_rect()
@@ -156,7 +159,8 @@ class Game():
         self.c = 2
         com1menu = pygame_menu.Menu('P1 VS. COM Menu', 450, 500, theme=mytheme)
         com1menu.add.button('Start', self.menu_callback_start_game, GameMode.P1VSCOM)
-        com1menu.add.selector('COM1 color:', [('Black', ChessState.BLACK), ('White', ChessState.WHITE)],
+        self.com_color = ChessState.BLACK
+        com1menu.add.selector('COM1 color:', [('Black', ChessState.BLACK), ('White', ChessState.WHITE)], default=int(self.com_color), 
                   onchange = self.com1menu_callback_setcolor)
         com1menu.add.dropselect(
             title='COM1\'s tactic',
@@ -165,11 +169,11 @@ class Game():
                 font_size=32,
                 selection_option_font_size=20)
         com1menu.add.range_slider('Time out', self.time_out, (0.5, 60), 0.5,
-                      value_format=lambda x: str(int(x*2)/2), onreturn=self.set_timeout)
+                      value_format=lambda x: str(int(x*2)/2), onchange=self.set_timeout)
         com1menu.add.range_slider('Iterations', self.iretation_times, (10, 100), 1,
-                value_format=lambda x: str(int(x)), onreturn=self.set_iteration)
+                value_format=lambda x: str(int(x)), onchange=self.set_iteration)
         com1menu.add.range_slider('c', self.c, (1, 100), 1,
-            value_format=lambda x: str(int(x)), onreturn=self.set_c)
+            value_format=lambda x: str(int(x)), onchange=self.set_c)
         com1menu.parent = 'MAIN'
         com1menu.flag = False
         com1menu.disable()
@@ -196,7 +200,7 @@ class Game():
         self.current_menu = None
         self.com_thinking = False
         self.time_map = None
-        self.com_color = None
+        
         self.reversi = Reversi(self.board.board_size)
 
 
@@ -401,7 +405,7 @@ class Game():
             elif mode == GameMode.P1VSP2:
                 self.curren_game_mode = GameMode.P1VSP2
 
-            self.menu_flag = False
+            #self.menu_flag = False
             self.reversi.init_game_state()
             #self.debug_init_state()
             #update_chess_img_to_screen()
