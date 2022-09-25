@@ -16,14 +16,20 @@ class Player():
         elif strategy_enum == StrategyEnum.HUMAN:
             pass
         elif strategy_enum == StrategyEnum.UCT:
-            self.strategy = UCT(reversi.do_action, reversi.check_finish, self.color)
+            self.strategy = UCT(reversi, self.color)
 
     def do(self):
         if self.strategy_enum != StrategyEnum.HUMAN:
+            if len(self.reversi.state.valid_path_map) == 0:
+                #self.reversi.invalid_count[self.color] += 1
+                #self.reversi.state.curren_chess_color = self.reversi.get_reversed_color(self.reversi.state.curren_chess_color)
+                self.reversi.do_action(self.reversi.state, None)
+                return None
             self.thinking = True
             a, self.time_map = self.strategy.search(self.reversi.state)
             s = self.reversi.do_action(self.reversi.state, a.action)
             self.thinking = False
+            self.reversi.invalid_count[self.color] = 0
             return s
         else:
             while self.color == self.reversi.state.curren_chess_color and not self.reversi.is_finish:

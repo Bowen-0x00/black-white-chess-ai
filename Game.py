@@ -313,7 +313,7 @@ class Game():
         if self.curren_game_mode == GameMode.P1VSP2 or self.curren_game_mode == GameMode.P1VSCOM or self.curren_game_mode == GameMode.FINISH or self.curren_game_mode == GameMode.COM1VSCOM2:  
             self.board.update_chess_img_to_screen(self.reversi.state.chess_status)
             self.board.update_info(self.reversi.state, self.curren_game_mode, self.players)  
-            self.check_show_finish()
+            #self.check_show_finish()
 
             
         if self.curren_game_mode == GameMode.FINISH:
@@ -334,31 +334,34 @@ class Game():
             # if not self.reversi.check_finish(self.reversi.state):
             #     self.com_do_action()
 
-    def com_do_action_callback(self, arg):
-        self.com_thinking = False
+    # def com_do_action_callback(self, arg):
+    #     self.com_thinking = False
         #self.check_show_finish()
             #self.update_board()
-    def com_do_action(self):
-        if self.curren_game_mode == GameMode.P1VSCOM and self.reversi.state.curren_chess_color == self.com_color:
-            self.com_thinking = True
-            def target():
-                start_time = time.process_time()
-                a, self.time_map = uct.multi_processor_search(self.reversi.state)
-                print('actual time: ', time.process_time() - start_time)
-                self.reversi.state = self.reversi.do_action(self.reversi.state, a.action)
-            #t = threading.Thread(target=target, args=(self, ))
-            t = ThreadWithCallback(target=target, args=(), callback=self.com_do_action_callback, callback_args=())
-            t.start()
+    # def com_do_action(self):
+    #     if self.curren_game_mode == GameMode.P1VSCOM and self.reversi.state.curren_chess_color == self.com_color:
+    #         self.com_thinking = True
+    #         def target():
+    #             start_time = time.process_time()
+    #             a, self.time_map = uct.multi_processor_search(self.reversi.state)
+    #             print('actual time: ', time.process_time() - start_time)
+    #             self.reversi.state = self.reversi.do_action(self.reversi.state, a.action)
+    #         #t = threading.Thread(target=target, args=(self, ))
+    #         t = ThreadWithCallback(target=target, args=(), callback=self.com_do_action_callback, callback_args=())
+    #         t.start()
     def dispatch(self):
         def target():
             while True:
-                if self.reversi.check_finish(self.reversi.state):
-                    break
                 for p in self.players:
                     if p.color == self.reversi.state.curren_chess_color:
                         s = p.do()
-                        if p.strategy_enum != StrategyEnum.HUMAN: self.reversi.state = s
-            print('dispatch finish')
+                        if p.strategy_enum != StrategyEnum.HUMAN and s != None: self.reversi.state = s
+                        if self.reversi.check_finish(self.reversi.state):
+                            self.reversi.is_finish = True
+                            self.curren_game_mode = GameMode.FINISH
+                            print('dispatch finish')
+                            return
+            
         t = ThreadWithCallback(target=target, args=())
         t.start()
 

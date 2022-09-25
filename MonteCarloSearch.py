@@ -27,9 +27,9 @@ class UCT():
     c = 2
     time_out = 1
 
-    def __init__(self, do_action, check_finish, color):
-        self.do_action = do_action      #do action return state
-        self.check_finish = check_finish
+    def __init__(self, reversi, color):
+        self.reversi = reversi
+        self.do_action = reversi.do_action      #do action return state
         self.color = color
         self.v0 = None
         self.keep_alive_multiprocessing = None
@@ -39,14 +39,18 @@ class UCT():
         self.param.c = 3
 
     def is_terminal(self, s):
-        return self.check_finish(s)
+        return self.reversi.check_finish(s)
 
     def do_random_action(self, s, unvisited = False):
         actions = s.get_actions()
         if unvisited:
             actions = [a for a in actions if a.expanded == False]
-        a = actions[random.randint(0, len(actions)-1)] #从动作列表中选择一个动作
-        s = self.do_action(s, a.action)  
+        if len(actions) > 0:
+            a = actions[random.randint(0, len(actions)-1)] #从动作列表中选择一个动作
+            s = self.reversi.do_action(s, a.action)  
+        else:
+            a = None
+            self.reversi.do_action(s, None)  
         s.get_actions()                      #执行动作返回状态
         return a, s
     def thread_callback(self, t):
@@ -81,7 +85,7 @@ class UCT():
             self.keep_alive_multiprocessing.run()
         
         for a in s0.actions:
-            s = self.do_action(s0, a.action)  
+            s = self.reversi.do_action(s0, a.action)  
             v = Node(s, a)
             v.parent = self.v0
             self.keep_alive_multiprocessing.q.put(v)
@@ -105,6 +109,7 @@ class UCT():
                 self.time_map['simulate'] = t['simulate'] if t['simulate'] > self.time_map['simulate'] else self.time_map['simulate']
                 self.time_map['back_propagate'] = t['back_propagate'] if t['back_propagate'] > self.time_map['back_propagate'] else self.time_map['back_propagate']
                 count += 1
+            #print('count: {}, len(actions): {}'.format(count, len(actions)))
             if count == len(actions):
                 break
             # if len(self.v0.children) == len(actions):
