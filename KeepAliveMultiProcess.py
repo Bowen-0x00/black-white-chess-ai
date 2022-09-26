@@ -12,6 +12,7 @@ class KeepAliveMultiprocessing():
         #self.setparam = setparam
         self.args = args
         self.callback = callback
+        self.running = multiprocessing.Manager().Value(int, 1)
 
     def run(self):
         for i in range(self.cpu_count):
@@ -20,6 +21,7 @@ class KeepAliveMultiprocessing():
             p.start()
 
     def loop(self, q):
+        #while self.running.value == 1:
         while True:
             if not q.empty():
                 v = q.get()
@@ -37,5 +39,8 @@ class KeepAliveMultiprocessing():
             #             break 
             #     for t in temp[:-1 if flag else 0]:
             #         q_param.put(t)    
+    def terminate(self):
+        for p in self.process_list:
+            p.terminate()
 
                

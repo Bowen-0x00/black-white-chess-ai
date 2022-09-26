@@ -17,7 +17,12 @@ class Reversi():
         self.invalid_count = {ChessStateEnum.BLACK:0, ChessStateEnum.WHITE:0}
         
     def init_game_state(self):
+        self.is_finish = False
+        self.state.valid_path_map = {}
+        self.invalid_count = {ChessStateEnum.BLACK:0, ChessStateEnum.WHITE:0}
+        self.state.curren_chess_color = ChessStateEnum.BLACK
         self.state.chess_status[::] = ChessStateEnum.EMPTY
+
         self.state.chess_status[self.board_size[0]//2-1][self.board_size[1]//2-1] = ChessStateEnum.WHITE
         self.state.chess_status[self.board_size[0]//2-1][self.board_size[1]//2] = ChessStateEnum.BLACK
         self.state.chess_status[self.board_size[0]//2][self.board_size[1]//2-1] = ChessStateEnum.BLACK
@@ -105,11 +110,10 @@ class Reversi():
                 s.scores[reverse_color] -=1  
 
     def do_action(self, s, a):
+        s_new = copy.deepcopy(s)
         if a == None:
-            s_new = s
             self.invalid_count[s.curren_chess_color] += 1
         else:
-            s_new = copy.deepcopy(s)
             self.invalid_count[s.curren_chess_color] = 0
         self.flip_chess(s_new, a)
         s_new.curren_chess_color = self.get_reversed_color(s_new.curren_chess_color)

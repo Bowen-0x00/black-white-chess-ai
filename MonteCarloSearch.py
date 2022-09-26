@@ -50,7 +50,7 @@ class UCT():
             s = self.reversi.do_action(s, a.action)  
         else:
             a = None
-            self.reversi.do_action(s, None)  
+            s = self.reversi.do_action(s, None)  
         s.get_actions()                      #执行动作返回状态
         return a, s
     def thread_callback(self, t):
@@ -149,11 +149,13 @@ class UCT():
         # print('curren_chess_color: ', v1.state.curren_chess_color)
         # print_board(v1.state.chess_status)
         # return a
-        print('i: ', i)
+        #print('i: ', i)
         return v0, time_map
 
     def is_has_unexpended_child(self, v):
         actions = v.state.get_actions()
+        if len(actions) == 0:
+            return True
         for a in actions:
             if a.expanded == False:
                 return True
@@ -183,7 +185,8 @@ class UCT():
 
     def expand(self, v):
         a, s = self.do_random_action(v.state, True)  #执行随机未访问过的动作
-        a.expanded = True
+        if a != None:
+            a.expanded = True
         v_next = Node(s, a)
         v_next.parent = v
         if not v.children:

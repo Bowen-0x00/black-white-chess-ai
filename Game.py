@@ -5,13 +5,14 @@ import pygame
 import sys
 from enum import Enum
 import pygame_menu
-from ChessStateEnum import ChessStateEnum, print_board
+from ChessStateEnum import ChessStateEnum, print_board, chess_to_char
 from MonteCarloSearch import UCT, UCTParam
 from StrategyEnum import StrategyEnum
 from ThreadWithCallback import ThreadWithCallback
 from Reversi import Reversi
 import time
 from Player import Player
+
 
 uct = None
 game = None
@@ -97,47 +98,47 @@ class Board():
         self.screen.blit(self.circle_img, rect)
 
 
-        #if curren_game_mode == GameMode.P1VSCOM:
-        for p in players:
-            if p.color == ChessStateEnum.BLACK:
-                text = self.text_font_32.render("Status: {}".format('Thinking...' if p.thinking else "Done"),True,(0,0,0))
-                textRect =text.get_rect()
-                pos = self.score_pos_black
-                textRect.bottomleft = (40, pos[1] + 80 + 60)
-                self.screen.blit(text,textRect)
-                if p.time_map and not p.thinking:
-                    y = pos[1] + 240
-                    text = self.text_font_32.render("Time:",True,(0,0,0))
+        if curren_game_mode == GameMode.P1VSCOM or curren_game_mode == GameMode.COM1VSCOM2:
+            for p in players:
+                if p.color == ChessStateEnum.BLACK:
+                    text = self.text_font_32.render("Status: {}".format('Thinking...' if p.thinking else "Done"),True,(0,0,0))
                     textRect =text.get_rect()
-                    textRect.bottomleft = (40, y)
-                    y += 40
+                    pos = self.score_pos_black
+                    textRect.bottomleft = (40, pos[1] + 80 + 60)
                     self.screen.blit(text,textRect)
-                    for t in p.time_map:
-                        text = self.text_font_16.render("{}: {:.2f}".format(t, p.time_map[t]),True,(0,0,0))
+                    if p.time_map and not p.thinking:
+                        y = pos[1] + 240
+                        text = self.text_font_32.render("Time:",True,(0,0,0))
                         textRect =text.get_rect()
-                        textRect.bottomright = (self.board_rect[0] - 40, y)
+                        textRect.bottomleft = (40, y)
                         y += 40
                         self.screen.blit(text,textRect)
-                
-            else:
-                text = self.text_font_32.render("Status: {}".format('Thinking...' if p.thinking else "Done"),True,(0,0,0))
-                textRect =text.get_rect()
-                pos = self.score_pos_white
-                textRect.bottomleft = (830, pos[1] + 80 + 60)
-                self.screen.blit(text,textRect)
-                if p.time_map and not p.thinking:
-                    y = pos[1] + 240
-                    text = self.text_font_32.render("Time:",True,(0,0,0))
+                        for t in p.time_map:
+                            text = self.text_font_16.render("{}: {:.2f}".format(t, p.time_map[t]),True,(0,0,0))
+                            textRect =text.get_rect()
+                            textRect.bottomright = (self.board_rect[0] - 40, y)
+                            y += 40
+                            self.screen.blit(text,textRect)
+                    
+                else:
+                    text = self.text_font_32.render("Status: {}".format('Thinking...' if p.thinking else "Done"),True,(0,0,0))
                     textRect =text.get_rect()
-                    textRect.bottomleft = (830, y)
-                    y += 40
+                    pos = self.score_pos_white
+                    textRect.bottomleft = (830, pos[1] + 80 + 60)
                     self.screen.blit(text,textRect)
-                    for t in p.time_map:
-                        text = self.text_font_16.render("{}: {:.2f}".format(t, p.time_map[t]),True,(0,0,0))
+                    if p.time_map and not p.thinking:
+                        y = pos[1] + 240
+                        text = self.text_font_32.render("Time:",True,(0,0,0))
                         textRect =text.get_rect()
-                        textRect.bottomright = (self.window_size[0] - 40, y)
+                        textRect.bottomleft = (830, y)
                         y += 40
                         self.screen.blit(text,textRect)
+                        for t in p.time_map:
+                            text = self.text_font_16.render("{}: {:.2f}".format(t, p.time_map[t]),True,(0,0,0))
+                            textRect =text.get_rect()
+                            textRect.bottomright = (self.window_size[0] - 40, y)
+                            y += 40
+                            self.screen.blit(text,textRect)
                 
 
     def show_finish(self, scores):
@@ -156,6 +157,7 @@ class Game():
         self.board = Board()
         self.curren_game_mode = GameMode.MENU
         self.test_flag = False
+        self.testbench_flag = False
 
         mytheme = pygame_menu.themes.THEME_DARK.copy()
         # myimage = pygame_menu.baseimage.BaseImage(
@@ -256,7 +258,7 @@ class Game():
         self.menu['COM1'] = com1menu
         self.menu['COM1COM2'] = com1com2menu
         self.current_menu = None
-        self.com_thinking = False
+        #self.com_thinking = False
         
         self.reversi = Reversi(self.board.board_size)
         self.players = [None, None]
@@ -355,11 +357,16 @@ class Game():
                 for p in self.players:
                     if p.color == self.reversi.state.curren_chess_color:
                         s = p.do()
-                        if p.strategy_enum != StrategyEnum.HUMAN and s != None: self.reversi.state = s
+
+                        #if p.strategy_enum != StrategyEnum.HUMAN and s != None: self.reversi.state = s
+                        self.reversi.state = s
+                        if self.testbench_flag:
+                            self.database.write_step(self)
                         if self.reversi.check_finish(self.reversi.state):
                             self.reversi.is_finish = True
                             self.curren_game_mode = GameMode.FINISH
-                            print('dispatch finish')
+                            winner = "{}".format('Black' if self.reversi.state.scores[ChessStateEnum.BLACK] >= self.reversi.state.scores[ChessStateEnum.WHITE]else 'White')
+                            print('{} Win. scores: {} - {}'.format(winner, self.reversi.state.scores[ChessStateEnum.BLACK], self.reversi.state.scores[ChessStateEnum.WHITE]))
                             return
             
         t = ThreadWithCallback(target=target, args=())
@@ -426,8 +433,7 @@ class Game():
     def run(self):
         clock = pygame.time.Clock()
         
-        while True:
-            
+        while self.testbench_flag == False or (self.testbench_flag == True and not self.reversi.is_finish):    
             self.update_board()
             for m in self.menu:
                 if self.menu[m].flag and self.menu[m].is_enabled():
@@ -448,16 +454,20 @@ class Game():
                 self.process_event(events)
             pygame.display.update()
             clock.tick(60)
+        # for p in self.players:
+        #     if p.strategy_enum == StrategyEnum.UCT:
+        #         p.strategy.keep_alive_multiprocessing.running.value = False
+
     def debug_init_state(self):
         board = [
-        [0, 0, 0, 2, 0, 2, 0, 2],
-        [0, 0, 0, 1, 1, 1, 1, 2],
-        [0, 0, 0, 0, 0, 1, 1, 2],
-        [0, 1, 1, 0, 1, 2, 1, 1],
-        [0, 1, 0, 1, 1, 1, 1, 0],
-        [0, 0, 0, 1, 1, 1, 0, 0],
-        [0, 2, 0, 1, 0, 0, 0, 0],
-        [2, 0, 0, 0, 0, 0, 0, 0]
+        [0, 1, 1, 1, 1, 1, 1, 1],
+        [2, 1, 2, 0, 0, 0, 0, 0],
+        [1, 1, 1, 1, 0, 1, 1, 0],
+        [1, 1, 1, 1, 1, 0, 1, 0],
+        [1, 1, 1, 1, 1, 0, 0, 0],
+        [1, 1, 1, 1, 1, 0, 1, 0],
+        [1, 1, 1, 1, 1, 1, 1, 0],
+        [1, 1, 1, 1, 1, 1, 1, 0]
         ]
         def get_chess_state_from_int(x):
             if x == 0: return ChessStateEnum.BLACK
@@ -473,7 +483,7 @@ class Game():
         # self.reversi.state.chess_status[1][4] = ChessStateEnum.WHITE
         # self.reversi.state.chess_status[0][4] = ChessStateEnum.WHITE
         # self.reversi.state.chess_status[5][3] = ChessStateEnum.BLACK
-        self.reversi.state.scores = {ChessStateEnum.BLACK:36, ChessStateEnum.WHITE:20}
+        self.reversi.state.scores = {ChessStateEnum.BLACK:17, ChessStateEnum.WHITE:45}
 
     def menu_callback_start_game(self, mode):
         global uct
@@ -517,7 +527,30 @@ class Game():
 if __name__=="__main__":
     
     game = Game()
-    game.run()    
+    if len(sys.argv) > 1:
+        for i in range(2):
+            if sys.argv[i+1] == 'UCT':
+                game.com_strategy[i] = StrategyEnum.UCT
+                game.uct_params[0].time_out = float(sys.argv[3])
+                game.uct_params[0].iretation_times = int(sys.argv[4])
+                game.uct_params[0].c = int(sys.argv[5])
+                game.uct_params[1].time_out = float(sys.argv[7])
+                game.uct_params[1].iretation_times = int(sys.argv[8])
+                game.uct_params[1].c = int(sys.argv[9])
+            elif sys.argv[i+1] == 'GREEDY_MAXSCORE':
+                game.com_strategy[i] = StrategyEnum.GREEDY_MAXSCORE
+            elif sys.argv[i+1] == 'GREEDY_MINPOS':
+                game.com_strategy[i] = StrategyEnum.GREEDY_MINPOS
+        game.testbench_flag = True
+        
+        from Database import Database
+        game.database = Database()
+        game.database.id = int(sys.argv[6])
+        game.menu_callback_start_game(GameMode.COM1VSCOM2)
+        
+    game.run()
+    game.database.write_finish(game)
+
 
 
 
