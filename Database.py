@@ -9,7 +9,12 @@ class Database():
             passwd="123456",
             database="reversi"
         )
-        self.id = 1    
+        mycursor = self.mydb.cursor()
+        sql = 'select max(id) from reversi'
+        mycursor.execute(sql)
+        myresult = mycursor.fetchall()
+        self.id = myresult[0][0] + 1
+
         
     
     def write_finish(self, game):

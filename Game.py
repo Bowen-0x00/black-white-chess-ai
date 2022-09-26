@@ -534,9 +534,9 @@ if __name__=="__main__":
                 game.uct_params[0].time_out = float(sys.argv[3])
                 game.uct_params[0].iretation_times = int(sys.argv[4])
                 game.uct_params[0].c = int(sys.argv[5])
-                game.uct_params[1].time_out = float(sys.argv[7])
-                game.uct_params[1].iretation_times = int(sys.argv[8])
-                game.uct_params[1].c = int(sys.argv[9])
+                game.uct_params[1].time_out = float(sys.argv[6])
+                game.uct_params[1].iretation_times = int(sys.argv[7])
+                game.uct_params[1].c = int(sys.argv[8])
             elif sys.argv[i+1] == 'GREEDY_MAXSCORE':
                 game.com_strategy[i] = StrategyEnum.GREEDY_MAXSCORE
             elif sys.argv[i+1] == 'GREEDY_MINPOS':
@@ -545,7 +545,6 @@ if __name__=="__main__":
         
         from Database import Database
         game.database = Database()
-        game.database.id = int(sys.argv[6])
         game.menu_callback_start_game(GameMode.COM1VSCOM2)
         
     game.run()
