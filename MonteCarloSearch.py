@@ -5,6 +5,7 @@ from ChessStateEnum import ChessStateEnum
 import time
 import multiprocessing
 from KeepAliveMultiProcess import KeepAliveMultiprocessing
+from ExpertSystem import ExpertSystem
 
 random.seed(4)
 class Node():
@@ -37,6 +38,8 @@ class UCT():
         self.param.iretation_times = 100
         self.param.time_out = 1
         self.param.c = 3
+        self.num = 1
+        self.is_expert = False
 
     def is_terminal(self, s):
         return self.reversi.check_finish(s)
@@ -46,6 +49,11 @@ class UCT():
         if unvisited:
             actions = [a for a in actions if a.expanded == False]
         if len(actions) > 0:
+            if self.is_expert:
+                expert = ExpertSystem()
+                actions_choose, _ = expert.choose_action(s, self.reversi, self.color) ## 小心删光了       
+                if actions_choose != []:
+                    actions = actions_choose   
             a = actions[random.randint(0, len(actions)-1)] #从动作列表中选择一个动作
             s = self.reversi.do_action(s, a.action)  
         else:
@@ -71,6 +79,15 @@ class UCT():
     #     self.c.value = l[2]
 
     def search(self, s0):
+        expert = ExpertSystem()
+        if self.is_expert:
+            actions, flag = expert.choose_action(s0, self.reversi, self.color, debug=True)
+            if flag:
+                if len(actions) == 1:
+                    return actions[0], {'select': 0, 'simulate': 0, 'back_propagate': 0}
+                else:
+                    s0.actions = actions
+                    return self.multi_processor_search(s0)
         return self.multi_processor_search(s0)
 
     def multi_processor_search(self, s0):
@@ -81,7 +98,7 @@ class UCT():
         self.time_map = {'select': 0, 'simulate': 0, 'back_propagate': 0}
         start_time = time.process_time()
         if not self.keep_alive_multiprocessing:
-            self.keep_alive_multiprocessing = KeepAliveMultiprocessing(self._search, self.success_callback)
+            self.keep_alive_multiprocessing = KeepAliveMultiprocessing(self._search, self.success_callback, self.num)
             self.keep_alive_multiprocessing.run()
         
         for a in s0.actions:
@@ -203,9 +220,9 @@ class UCT():
 
     def value(self, st):
         if self.color == ChessStateEnum.BLACK:
-            return st.scores[ChessStateEnum.BLACK] - st.scores[ChessStateEnum.WHITE]
+            return (st.scores[ChessStateEnum.BLACK] - st.scores[ChessStateEnum.WHITE]) ** 2
         else:
-            return st.scores[ChessStateEnum.WHITE] - st.scores[ChessStateEnum.BLACK]
+            return (st.scores[ChessStateEnum.WHITE] - st.scores[ChessStateEnum.BLACK]) ** 2
     def UCB(self, v, v1):
         return v1.q / v1.n + self.param.c * math.sqrt(2*math.log(v.n)/ v1.n)
 

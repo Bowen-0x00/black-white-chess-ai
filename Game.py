@@ -197,7 +197,8 @@ class Game():
             title='COM1\'s tactic',
             items=[('MCTS', StrategyEnum.UCT),
                 ('Greedy-Maxscore', StrategyEnum.GREEDY_MAXSCORE),
-                ('Greedy-Minpos', StrategyEnum.GREEDY_MINPOS)
+                ('Greedy-Minpos', StrategyEnum.GREEDY_MINPOS),
+                ('MCTS_EXPERT', StrategyEnum.UCT_EXPERT)
                 ],
                 default=0,
                 placeholder_add_to_selection_box=False,
@@ -222,7 +223,8 @@ class Game():
             title='COM1\'s tactic',
             items=[('MCTS', StrategyEnum.UCT),
                 ('Greedy-Maxscore', StrategyEnum.GREEDY_MAXSCORE),
-                ('Greedy-Minpos', StrategyEnum.GREEDY_MINPOS)
+                ('Greedy-Minpos', StrategyEnum.GREEDY_MINPOS),
+                ('MCTS_EXPERT', StrategyEnum.UCT_EXPERT)
                 ],
                 default=0,
                 placeholder_add_to_selection_box=False,
@@ -235,7 +237,8 @@ class Game():
             title='COM2\'s tactic',
             items=[('MCTS', StrategyEnum.UCT),
                 ('Greedy-Maxscore', StrategyEnum.GREEDY_MAXSCORE),
-                ('Greedy-Minpos', StrategyEnum.GREEDY_MINPOS)
+                ('Greedy-Minpos', StrategyEnum.GREEDY_MINPOS),
+                ('MCTS_EXPERT', StrategyEnum.UCT_EXPERT)
                 ],
                 default=1,
                 placeholder_add_to_selection_box=False,
@@ -368,7 +371,7 @@ class Game():
                             winner = "{}".format('Black' if self.reversi.state.scores[ChessStateEnum.BLACK] >= self.reversi.state.scores[ChessStateEnum.WHITE]else 'White')
                             print('{} Win. scores: {} - {}'.format(winner, self.reversi.state.scores[ChessStateEnum.BLACK], self.reversi.state.scores[ChessStateEnum.WHITE]))
                             return
-            
+                time.sleep(0.01)
         t = ThreadWithCallback(target=target, args=())
         t.start()
 
@@ -460,14 +463,14 @@ class Game():
 
     def debug_init_state(self):
         board = [
-        [0, 1, 1, 1, 1, 1, 1, 1],
-        [2, 1, 2, 0, 0, 0, 0, 0],
-        [1, 1, 1, 1, 0, 1, 1, 0],
-        [1, 1, 1, 1, 1, 0, 1, 0],
-        [1, 1, 1, 1, 1, 0, 0, 0],
-        [1, 1, 1, 1, 1, 0, 1, 0],
-        [1, 1, 1, 1, 1, 1, 1, 0],
-        [1, 1, 1, 1, 1, 1, 1, 0]
+        [2, 2, 2, 2, 2, 2, 2, 2],
+        [2, 2, 2, 2, 2, 2, 2, 2],
+        [2, 2, 0, 0, 1, 2, 0, 2],
+        [2, 2, 0, 0, 1, 0, 2, 2],
+        [2, 2, 0, 1, 1, 2, 2, 2],
+        [2, 2, 2, 0, 1, 1, 0, 0],
+        [2, 2, 0, 2, 2, 1, 1, 2],
+        [2, 2, 2, 2, 2, 2, 2, 2]
         ]
         def get_chess_state_from_int(x):
             if x == 0: return ChessStateEnum.BLACK
@@ -483,7 +486,7 @@ class Game():
         # self.reversi.state.chess_status[1][4] = ChessStateEnum.WHITE
         # self.reversi.state.chess_status[0][4] = ChessStateEnum.WHITE
         # self.reversi.state.chess_status[5][3] = ChessStateEnum.BLACK
-        self.reversi.state.scores = {ChessStateEnum.BLACK:17, ChessStateEnum.WHITE:45}
+        self.reversi.state.scores = {ChessStateEnum.BLACK:12, ChessStateEnum.WHITE:8}
 
     def menu_callback_start_game(self, mode):
         global uct
@@ -506,10 +509,20 @@ class Game():
                 self.curren_game_mode = GameMode.COM1VSCOM2
                 self.players[0] = Player(self.com_strategy[0], ChessStateEnum.BLACK, self.reversi)
                 self.players[1] = Player(self.com_strategy[1], ChessStateEnum.WHITE, self.reversi)
-                if self.com_strategy[0] == StrategyEnum.UCT:
+                count = 0
+                if self.com_strategy[0] == StrategyEnum.UCT or self.com_strategy[0] == StrategyEnum.UCT_EXPERT:
                     self.players[0].strategy.set_param(self.uct_params[0])
-                if self.com_strategy[1] == StrategyEnum.UCT:
+                    count+=1
+                    if self.com_strategy[0] == StrategyEnum.UCT_EXPERT:
+                        self.players[0].strategy.is_expert = True
+                if self.com_strategy[1] == StrategyEnum.UCT or self.com_strategy[1] == StrategyEnum.UCT_EXPERT:
                     self.players[1].strategy.set_param(self.uct_params[1])
+                    count+=1
+                    if self.com_strategy[1] == StrategyEnum.UCT_EXPERT:
+                        self.players[1].strategy.is_expert = True
+                if count == 2:
+                    self.players[0].strategy.num = 2
+                    self.players[1].strategy.num = 2
             #self.menu_flag = False
             self.reversi.init_game_state()
             #self.debug_init_state()
@@ -529,20 +542,24 @@ if __name__=="__main__":
     game = Game()
     if len(sys.argv) > 1:
         for i in range(2):
-            if sys.argv[i+1] == 'UCT':
-                game.com_strategy[i] = StrategyEnum.UCT
+            if sys.argv[i+1] == 'UCT' or sys.argv[i+1] == 'UCT_EXPERT':
+                
                 game.uct_params[0].time_out = float(sys.argv[3])
                 game.uct_params[0].iretation_times = int(sys.argv[4])
-                game.uct_params[0].c = int(sys.argv[5])
+                game.uct_params[0].c = float(sys.argv[5])
                 game.uct_params[1].time_out = float(sys.argv[6])
                 game.uct_params[1].iretation_times = int(sys.argv[7])
-                game.uct_params[1].c = int(sys.argv[8])
+                game.uct_params[1].c = float(sys.argv[8])
+                if sys.argv[i+1] == 'UCT':
+                    game.com_strategy[i] = StrategyEnum.UCT
+                elif sys.argv[i+1] == 'UCT_EXPERT':
+                    game.com_strategy[i] = StrategyEnum.UCT_EXPERT
             elif sys.argv[i+1] == 'GREEDY_MAXSCORE':
                 game.com_strategy[i] = StrategyEnum.GREEDY_MAXSCORE
             elif sys.argv[i+1] == 'GREEDY_MINPOS':
                 game.com_strategy[i] = StrategyEnum.GREEDY_MINPOS
         game.testbench_flag = True
-        
+
         from Database import Database
         game.database = Database()
         game.menu_callback_start_game(GameMode.COM1VSCOM2)

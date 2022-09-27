@@ -15,7 +15,7 @@ class Player():
             self.strategy = Greedy(reversi.do_action, strategy_enum, self.color)
         elif strategy_enum == StrategyEnum.HUMAN:
             pass
-        elif strategy_enum == StrategyEnum.UCT:
+        elif strategy_enum == StrategyEnum.UCT or strategy_enum == StrategyEnum.UCT_EXPERT:
             self.strategy = UCT(reversi, self.color)
 
     def do(self):

@@ -4,6 +4,7 @@ class StrategyEnum(Enum):
     GREEDY_MAXSCORE = 1
     GREEDY_MINPOS = 2
     HUMAN = 3
+    UCT_EXPERT = 4
 
 
     def __new__(cls, value):
