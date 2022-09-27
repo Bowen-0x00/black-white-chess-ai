@@ -196,7 +196,7 @@ class UCT():
 
     def get_q_by_player(self, st, state):
         q = self.value(st)
-        if state.curren_chess_color == ChessStateEnum.BLACK:
+        if state.curren_chess_color == self.color:
             return -q
         else:
             return q

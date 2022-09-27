@@ -50,4 +50,4 @@ class Database():
         mycursor.execute(sql, val)
 
         self.mydb.commit()
-        print("write_step, ID:", mycursor.lastrowid)
+        print("write_step, ID:{}  finish_id:{}".format(mycursor.lastrowid, self.id))
