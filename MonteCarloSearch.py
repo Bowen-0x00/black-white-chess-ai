@@ -220,9 +220,9 @@ class UCT():
 
     def value(self, st):
         if self.color == ChessStateEnum.BLACK:
-            return (st.scores[ChessStateEnum.BLACK] - st.scores[ChessStateEnum.WHITE]) ** 2
+            return st.scores[ChessStateEnum.BLACK]**2 - st.scores[ChessStateEnum.WHITE] ** 2
         else:
-            return (st.scores[ChessStateEnum.WHITE] - st.scores[ChessStateEnum.BLACK]) ** 2
+            return st.scores[ChessStateEnum.WHITE]**2 - st.scores[ChessStateEnum.BLACK] ** 2
     def UCB(self, v, v1):
         return v1.q / v1.n + self.param.c * math.sqrt(2*math.log(v.n)/ v1.n)
 
