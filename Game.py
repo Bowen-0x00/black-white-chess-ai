@@ -146,7 +146,10 @@ class Board():
         face.fill((200, 200, 200, 200))
         self.screen.blit(face, (0, 0))
         self.screen.blit(self.finish_img, (310, 220))
-        text = self.text_font.render("{}胜".format('黑' if scores[ChessStateEnum.BLACK] >= scores[ChessStateEnum.WHITE]else '白'),True,(30,30,30))
+        text_str = '平局'
+        if scores[ChessStateEnum.BLACK] != scores[ChessStateEnum.WHITE]:
+            text_str = "{}胜".format('黑' if scores[ChessStateEnum.BLACK] > scores[ChessStateEnum.WHITE]else '白')
+        text = self.text_font.render(text_str, True,(30,30,30))
         finish_text_rect =text.get_rect() 
         finish_text_rect.center = (510, 390)
         self.screen.blit(text,finish_text_rect)

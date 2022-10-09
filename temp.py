@@ -143,21 +143,11 @@ class UCT():
         time_map = {'select': 0, 'simulate': 0, 'back_propagate': 0}
         #v0 = Node(s0, None)
         while i < self.param.iretation_times:
-            t1 = time.process_time()
             v1 = self.select(v0)
-            t = time.process_time()
-            time_map['select'] += t - t1
-            t1 = t
             st = self.simulate(v1.state)
-            t = time.process_time()
-            time_map['simulate'] += t - t1
-            t1 = t
             self.back_propagate(v1, st)
-            t = time.process_time()
-            time_map['back_propagate'] += t - t1
-
             i += 1
-            end_time = time.process_time()
+
             if end_time > self.param.time_out + start_time:
                 print('time out: {}, iterate times: {}.  actual: {}'.format(self.param.time_out, i, end_time-start_time))
                 break
@@ -182,9 +172,11 @@ class UCT():
         v = v0
         while not self.is_terminal(v.state):          #非叶子节点
             if self.is_has_unexpended_child(v):  #有未扩展节点
+                #print("has unexpanded")
                 return self.expand(v)           #有则扩展节点
             else:
                 v, _ = self.UCB1(v)      #没有则找UCB最大的往下继续
+                #print("UCB1")
         return v
     def simulate(self, s0):
         s = s0
@@ -211,18 +203,16 @@ class UCT():
 
     def get_q_by_player(self, st, state):
         q = self.value(st)
-        if state.curren_chess_color == self.color:#当前节点的颜色和玩家颜色相同 价值取负，表示上层对手会选择最小分数
+        if state.curren_chess_color == self.color:
             return -q
         else:
             return q
 
     def value(self, st):
         if self.color == ChessStateEnum.BLACK:
-            return st.scores[ChessStateEnum.BLACK] > st.scores[ChessStateEnum.WHITE]
-            #return st.scores[ChessStateEnum.BLACK]**2 - st.scores[ChessStateEnum.WHITE] ** 2
+            return st.scores[ChessStateEnum.BLACK]**2 - st.scores[ChessStateEnum.WHITE] ** 2
         else:
-            return st.scores[ChessStateEnum.WHITE] > st.scores[ChessStateEnum.BLACK]
-            #return st.scores[ChessStateEnum.WHITE]**2 - st.scores[ChessStateEnum.BLACK] ** 2
+            return st.scores[ChessStateEnum.WHITE]**2 - st.scores[ChessStateEnum.BLACK] ** 2
     def UCB(self, v, v1):
         return v1.q / v1.n + self.param.c * math.sqrt(2*math.log(v.n)/ v1.n)
 

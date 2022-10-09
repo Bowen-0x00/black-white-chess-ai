@@ -29,7 +29,10 @@ class Database():
                 board_str += chess_to_char(game.reversi.state.chess_status[x][y])
                 board_str += ' '
         board_str = board_str[:-1]
-        val = (self.id, game.players[0].strategy_enum.name, game.players[1].strategy_enum.name, ChessStateEnum.BLACK.name if game.reversi.state.scores[ChessStateEnum.BLACK] > game.reversi.state.scores[ChessStateEnum.WHITE] else ChessStateEnum.WHITE.name,\
+        winner_name = 'DRAW'
+        if game.reversi.state.scores[ChessStateEnum.BLACK] != game.reversi.state.scores[ChessStateEnum.WHITE]:
+            winner_name = ChessStateEnum.BLACK.name if game.reversi.state.scores[ChessStateEnum.BLACK] > game.reversi.state.scores[ChessStateEnum.WHITE] else ChessStateEnum.WHITE.name
+        val = (self.id, game.players[0].strategy_enum.name, game.players[1].strategy_enum.name, winner_name,\
             game.reversi.state.scores[ChessStateEnum.BLACK], game.reversi.state.scores[ChessStateEnum.WHITE],\
             float(game.uct_params[0].time_out), game.uct_params[0].iretation_times, float(game.uct_params[0].c),\
             float(game.uct_params[1].time_out), game.uct_params[1].iretation_times, float(game.uct_params[1].c), board_str)
